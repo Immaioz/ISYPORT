@@ -239,7 +239,8 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.title("Camera Streams GUI")
     root.geometry("1200x800")
-
+    icon = tk.PhotoImage(file="utils/icon.png")
+    root.iconphoto(True, icon) 
     create_gui(root)
 
     root.protocol("WM_DELETE_WINDOW", on_closing)  # Intercept window close event
