@@ -186,7 +186,6 @@ def create_gui(root):
     elog = tk.Label(columns)
     elog.pack(anchor="ne")
 
-
     # Additional information in two columns
     additional_info_frame = tk.LabelFrame(root, text="Additional Information", width=60)
     left_column = tk.Frame(additional_info_frame)
