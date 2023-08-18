@@ -55,7 +55,7 @@ def resize_frame(bbox, frame):
     return cropped_image
 
 def add_frame(VFrame, IRFrame, bbox):
-    time.sleep(1)
+
     for key, value in frames.items():
         if value is not None:
             frame = resize_frame(bbox, value)
@@ -191,10 +191,8 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                         frames["VCam"] = frame.copy()
                     elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
                         frames["IRCam"] = frame.copy()
-                    #global frame_running 
-                    threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
 
-                    #add_frame(VFrame,IRFrame, box)
+                    threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
                         frames["VCam"] = None
