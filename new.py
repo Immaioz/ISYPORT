@@ -97,7 +97,7 @@ def determine_movement_direction(x1, x2):
     elif delta_x < 0:
         return False
 
-def add_event(event_log, messages):
+def add_event(event_log, messages, image):
     event_log.config(state=tk.NORMAL)  # Enable editing
     event_log.delete("1.0", tk.END)  # Clear existing content
     for key, value in messages.items():
@@ -105,6 +105,7 @@ def add_event(event_log, messages):
             event_log.insert(tk.END, key + " : No detection " + "\n")
         else:
             event_log.insert(tk.END, key + " : " + value + "\n")
+    event_log.image_create(tk.END, image=image)
     event_log.config(state=tk.DISABLED)  # Disable editing
 
 def detect_objects(frame):
@@ -154,7 +155,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     frame = frame.plot()
                 else:
                     info[camera_name] = None
-                add_event(event_log, info)
+
                 target_width, target_height = 350, 300  # Adjust as needed
                 aspect_ratio = frame.shape[1] / frame.shape[0]
                 if aspect_ratio > target_width / target_height:
@@ -166,6 +167,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
                 quadrant.configure(image=image)
                 quadrant.image = image
+                add_event(event_log, info, image)
             else:
                 print(f"Failed to read frame from camera: {camera_address}. Retrying...")
                 cap.release()
@@ -181,14 +183,10 @@ def create_gui(root):
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
 
     # Event log
-    event_log_frame = tk.LabelFrame(root, text="Event Log", width=30, height=20)
-    event_log = tk.Frame(event_log_frame, bg="white")
-    event_log.pack(padx=5, pady=5)
-    elog = tk.Label(event_log, text="DummyText", bg="white")
-    elog.pack(anchor="w")
+    event_log = tk.Text(root, width=30, height=20)
    
     # Additional information in two columns
-    additional_info_frame = tk.LabelFrame(root, text="Additional Information", bg="white")
+    additional_info_frame = tk.LabelFrame(root, text="Additional Information", bg="white", width=60)
     
     left_column = tk.Frame(additional_info_frame, bg="white")
     left_column.pack(side="left", padx=5, pady=5)
@@ -224,17 +222,19 @@ def create_gui(root):
     additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
     
 
+
     cameras = {
-        "Camera Stream 1": "rtsp://192.168.71.11:554/stream2",
-        "Camera Stream 2": "rtsp://192.168.71.12:554/stream2",
-	"Camera Stream 3": "rtsp://admin:Admin2022%23@192.168.71.14:554/ch0?transport=udp",
-	"Camera Stream 4": "rtsp://admin:Admin2022%23@192.168.71.13:554/ch0?transport=udp"
+        "Camera Stream 1": "Video/Cam1.mp4",
+        "Camera Stream 2": "Video/Cam2.mp4",
+        "Camera Stream 3": "Video/Cam3.mp4",
+        "Camera Stream 4": "Video/Cam4.mp4"
     }
 
 
+    old_centerx = float('inf')
     for camera_name, camera_address in cameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
-        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
+        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, event_log, camera_name), daemon=True).start()
     threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
 
 
