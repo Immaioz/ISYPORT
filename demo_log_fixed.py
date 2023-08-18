@@ -48,39 +48,36 @@ frames = {
 }
 
 
-def resize_frame(bbox, frame):
+def resize_frame(bbox, frame, value):
     bbox = bbox.astype(int)
     x1,y1,x2,y2 = np.reshape(bbox, (4,))
     cropped_image = frame[y1:y2, x1:x2]
+    height, width = frame.shape[:2]
+    new_width = int(width * value / 100)
+    new_height = int(height * value / 100)
+    resized_frame = cv2.resize(frame, (new_width, new_height))
     return cropped_image
 
 def add_frame(VFrame, IRFrame, bbox):
-
+    # while True:
     for key, value in frames.items():
         if value is not None:
-            frame = resize_frame(bbox, value)
             if key == "VCam":
-                height, width = frame.shape[:2]
-                new_width = int(width * 5 / 100)
-                new_height = int(height * 5 / 100)
-                resized_frame = cv2.resize(frame, (new_width, new_height))
-                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
+                frame = resize_frame(bbox, value, 5)
+                image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
                 VFrame.configure(image=image)
                 VFrame.image = image
             elif key == "IRCam":
-                height, width = frame.shape[:2]
-                new_width = int(width * 50 / 100)
-                new_height = int(height * 50/ 100)
-                resized_frame = cv2.resize(frame, (new_width, new_height))
-                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
+                frame = resize_frame(bbox, value, 50)
+                image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
                 IRFrame.configure(image=image)
                 IRFrame.image = image
 
 
 def get_weather():
     api_key = "916923f32ca072e53d4f02822dbc6968"
-    city = "Augusta, IT"  # Replace with the desired city name
-    units = "metric"   # Use "imperial" for Fahrenheit, "metric" for Celsius, or "standard" for Kelvin
+    city = "Augusta, IT"  
+    units = "metric"   
     base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&units={units}&appid={api_key}"
     current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
     try:
@@ -172,6 +169,11 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     label = frame[0].names[int(frame[0].boxes.cls[0])]
                     centerx, centery = calculate_box_center(box)
 
+                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
+                        frames["VCam"] = frame[0].orig_img.copy()
+                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
+                        frames["IRCam"] = frame[0].orig_img.copy()
+
                     if old_centerx[camera_name] == None:
                         old_centerx[camera_name] = centerx
                         state = "detected"
@@ -187,11 +189,10 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     
                     info[camera_name] =  message
                     frame = frame.plot()
-                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                        frames["VCam"] = frame.copy()
-                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                        frames["IRCam"] = frame.copy()
 
+                    # global frame_running 
+                    # if not frame_running:
+                    #     frame_running = True
                     threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
