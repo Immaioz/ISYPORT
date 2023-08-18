@@ -56,12 +56,20 @@ def add_frame(VFrame, IRFrame, bbox):
     for key, value in frames.items():
         if value is not None:
             frame = resize_frame(bbox, value)
-            resized_frame = cv2.resize(frame, (50, 50))
-            image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
             if key == "VCam":
+                height, width = frame.shape[:2]
+                new_width = int(width * 5 / 100)
+                new_height = int(height * 5 / 100)
+                resized_frame = cv2.resize(frame, (new_width, new_height))
+                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
                 VFrame.configure(image=image)
                 VFrame.image = image
             elif key == "IRCam":
+                height, width = frame.shape[:2]
+                new_width = int(width * 50 / 100)
+                new_height = int(height * 50/ 100)
+                resized_frame = cv2.resize(frame, (new_width, new_height))
+                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
                 IRFrame.configure(image=image)
                 IRFrame.image = image
 
@@ -136,7 +144,7 @@ def add_event(event_log, messages, image):
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, imgsz=(800,480), verbose=False)
+    results = model(frame, device=0, verbose=False)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -178,10 +186,10 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     info[camera_name] =  message
                     frame = frame.plot()
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                       frames["VCam"] = frame
+                       frames["VCam"] = frame.copy()
                     elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                       frames["IRCam"] = frame
-                    #add_frame(VFrame,IRFrame, box)
+                       frames["IRCam"] = frame.copy()
+                    add_frame(VFrame,IRFrame, box)
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
                         frames["VCam"] = None
