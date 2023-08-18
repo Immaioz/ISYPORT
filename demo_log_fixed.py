@@ -17,7 +17,9 @@ model = YOLO('/home/antonino/Università/porto/train/ModelloTotale/weights/best.
 # Global flag to control threads
 running = True
 
-global info, old_centerx, status, frames
+global info, old_centerx, status, frames, frame_running
+
+frame_running = False
 
 info = {
     "Camera Stream 1": None,
@@ -53,6 +55,7 @@ def resize_frame(bbox, frame):
     return cropped_image
 
 def add_frame(VFrame, IRFrame, bbox):
+    time.sleep(1)
     for key, value in frames.items():
         if value is not None:
             frame = resize_frame(bbox, value)
@@ -72,9 +75,6 @@ def add_frame(VFrame, IRFrame, bbox):
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
                 IRFrame.configure(image=image)
                 IRFrame.image = image
-
-
-
 
 
 def get_weather():
@@ -152,6 +152,7 @@ def detect_objects(frame):
     return frame, False
 
 def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFrame, IRFrame):
+    
     while running:
         cap = cv2.VideoCapture(camera_address)
         if not cap.isOpened():
@@ -161,6 +162,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
 
         while running:
             ret, frame = cap.read()
+            
             if ret:
                 with lock:
                     frame, flag = detect_objects(frame)  # Perform object detection on the frame
@@ -186,10 +188,13 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     info[camera_name] =  message
                     frame = frame.plot()
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                       frames["VCam"] = frame.copy()
+                        frames["VCam"] = frame.copy()
                     elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                       frames["IRCam"] = frame.copy()
-                    add_frame(VFrame,IRFrame, box)
+                        frames["IRCam"] = frame.copy()
+                    #global frame_running 
+                    threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
+
+                    #add_frame(VFrame,IRFrame, box)
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
                         frames["VCam"] = None
