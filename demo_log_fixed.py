@@ -98,15 +98,15 @@ def determine_movement_direction(x1, x2):
         return False
 
 def add_event(event_log, messages, image):
-    event_log.config(state=tk.NORMAL)  # Enable editing
-    event_log.delete("1.0", tk.END)  # Clear existing content
+    text = ""
     for key, value in messages.items():
         if value == None:
-            event_log.insert(tk.END, key + " : No detection " + "\n")
+            text = text + key + " : No detection " + "\n"
         else:
-            event_log.insert(tk.END, key + " : " + value + "\n")
-    event_log.image_create(tk.END, image=image)
-    event_log.config(state=tk.DISABLED)  # Disable editing
+            text = text + key + " : " + value + "\n"
+    event_log.config(text= text)
+    # event_log.image_create(tk.END, image=image)
+    # event_log.config(state=tk.DISABLED)  # Disable editing
 
 def detect_objects(frame):
 
@@ -136,8 +136,6 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     box = frame[0].boxes.xyxy[0].cpu().numpy()
                     label = frame[0].names[int(frame[0].boxes.cls[0])]
                     centerx, centery = calculate_box_center(box)
-                    state = "detected"
-                    # pos = int(list(camera_name.keys())[0].split()[-1]) - 1
                     if old_centerx[camera_name] == None:
                         old_centerx[camera_name] = centerx
                         state = "detected"
@@ -163,7 +161,6 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 else:
                     target_width = int(target_height * aspect_ratio)
                 resized_frame = cv2.resize(frame, (target_width, target_height))
-                #frame_rgb = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
                 quadrant.configure(image=image)
                 quadrant.image = image
@@ -182,29 +179,27 @@ def create_gui(root):
     quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
 
-    # Event log
-    event_log = tk.Text(root, width=30, height=20)
-   
+    # Event log frame
+    event_log_frame = tk.LabelFrame(root, text="Event Log", width=30, height=30)
+    columns = tk.Frame(event_log_frame)
+    columns.pack(side="top", padx=5, pady=5)
+    elog = tk.Label(columns)
+    elog.pack(anchor="ne")
+
+
     # Additional information in two columns
-    additional_info_frame = tk.LabelFrame(root, text="Additional Information", bg="white", width=60)
-    
-    left_column = tk.Frame(additional_info_frame, bg="white")
+    additional_info_frame = tk.LabelFrame(root, text="Additional Information", width=60)
+    left_column = tk.Frame(additional_info_frame)
     left_column.pack(side="left", padx=5, pady=5)
-
-    right_column = tk.Frame(additional_info_frame, bg="white")
+    right_column = tk.Frame(additional_info_frame)
     right_column.pack(side="right", padx=5, pady=5)
-
-    # Populate left and right columns with labels or widgets
-    left_label1 = tk.Label(left_column, text="Left Column Info 1", bg="white")
+    left_label1 = tk.Label(left_column)
     left_label1.pack(anchor="w")
-
-    left_label2 = tk.Label(left_column, text="Left Column Info 2", bg="white")
+    left_label2 = tk.Label(left_column)
     left_label2.pack(anchor="w")
-
-    right_label1 = tk.Label(right_column, text="Right Column Info 1", bg="white")
+    right_label1 = tk.Label(right_column)
     right_label1.pack(anchor="w")
-
-    right_label2 = tk.Label(right_column, text="Right Column Info 2", bg="white")
+    right_label2 = tk.Label(right_column)
     right_label2.pack(anchor="w")
 
     root.grid_rowconfigure(0, weight=3)
@@ -218,11 +213,9 @@ def create_gui(root):
     quadrant_2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-    event_log.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="nsew")
-    additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
+    event_log_frame.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="n")
+    additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="sw")
     
-
-
     cameras = {
         "Camera Stream 1": "Video/Cam1.mp4",
         "Camera Stream 2": "Video/Cam2.mp4",
@@ -230,11 +223,9 @@ def create_gui(root):
         "Camera Stream 4": "Video/Cam4.mp4"
     }
 
-
-    old_centerx = float('inf')
     for camera_name, camera_address in cameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
-        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, event_log, camera_name), daemon=True).start()
+        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
     threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
 
 
