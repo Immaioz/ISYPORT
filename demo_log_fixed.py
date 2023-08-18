@@ -18,6 +18,9 @@ global info, old_centerx, status, frames, frame_running
 
 frame_running = False
 
+IR_no_det = cv2.imread("utils/IRCAM_NODETECT.png")
+VIS_no_det = cv2.imread("utils/VCAM_NODETECT.png")
+
 info = {
     "Camera Stream 1": None,
     "Camera Stream 2": None,
@@ -55,6 +58,7 @@ def resize_frame(bbox, frame, value):
     return resized_frame
 
 def add_frame(VFrame, IRFrame, bbox):
+    time.sleep(0.5)
     for key, value in frames.items():
         if value is not None:
             if key == "VCam":
@@ -191,9 +195,9 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                        frames["VCam"] = None
+                        frames["VCam"] = VIS_no_det
                     elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                        frames["IRCam"] = None
+                        frames["IRCam"] = IR_no_det
 
                     info[camera_name] = None
 
@@ -251,13 +255,13 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam", width=50, height=50, labelanchor="n")
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=50, height=50, labelanchor="n")
     frame1 = tk.Frame(visible_frame)
     frame1.pack(side="top", padx=2, pady=0)
     VFrame = tk.Label(frame1)
     VFrame.pack(anchor="e")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam", width=50, height=50, labelanchor="n")
+    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=50, height=50, labelanchor="n")
     frame2 = tk.Frame(IR_frame)
     frame2.pack(side="top", padx=2, pady=0)
     IRFrame = tk.Label(frame2)
@@ -284,7 +288,6 @@ def create_gui(root):
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name, VFrame, IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-    # threading.Thread(target=add_frame, args=(Vframe,IRFrame, None, None), daemon=True).start()
 
 def on_closing():
     global running
