@@ -17,9 +17,7 @@ model = YOLO('/home/antonino/Università/porto/train/ModelloTotale/weights/best.
 # Global flag to control threads
 running = True
 
-global info
-global old_centerx
-global status
+global info, old_centerx, status, frames
 
 info = {
     "Camera Stream 1": None,
@@ -41,6 +39,34 @@ status = {
     "Camera Stream 3": None,
     "Camera Stream 4": None
 }
+
+frames = {
+    "VCam": None,
+    "IRCam": None
+}
+
+
+def resize_frame(bbox, frame):
+    bbox = bbox.astype(int)
+    x1,y1,x2,y2 = np.reshape(bbox, (4,))
+    cropped_image = frame[y1:y2, x1:x2]
+    return cropped_image
+
+def add_frame(VFrame, IRFrame, bbox):
+    for key, value in frames.items():
+        if value is not None:
+            frame = resize_frame(bbox, value)
+            resized_frame = cv2.resize(frame, (50, 50))
+            image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
+            if key == "VCam":
+                VFrame.configure(image=image)
+                VFrame.image = image
+            elif key == "IRCam":
+                IRFrame.configure(image=image)
+                IRFrame.image = image
+
+
+
 
 
 def get_weather():
@@ -117,8 +143,7 @@ def detect_objects(frame):
 
     return frame, False
 
-
-def display_camera_stream(camera_address, quadrant, event_log, camera_name):
+def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFrame, IRFrame):
     while running:
         cap = cv2.VideoCapture(camera_address)
         if not cap.isOpened():
@@ -136,6 +161,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     box = frame[0].boxes.xyxy[0].cpu().numpy()
                     label = frame[0].names[int(frame[0].boxes.cls[0])]
                     centerx, centery = calculate_box_center(box)
+
                     if old_centerx[camera_name] == None:
                         old_centerx[camera_name] = centerx
                         state = "detected"
@@ -151,7 +177,17 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     
                     info[camera_name] =  message
                     frame = frame.plot()
+                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
+                       frames["VCam"] = frame
+                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
+                       frames["IRCam"] = frame
+                    #add_frame(VFrame,IRFrame, box)
                 else:
+                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
+                        frames["VCam"] = None
+                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
+                        frames["IRCam"] = None
+
                     info[camera_name] = None
 
                 target_width, target_height = 350, 300  # Adjust as needed
@@ -180,14 +216,14 @@ def create_gui(root):
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
 
     # Event log frame
-    event_log_frame = tk.LabelFrame(root, text="Event Log", width=30, height=30)
+    event_log_frame = tk.LabelFrame(root, text="Event Log:", height=30, labelanchor="n")
     columns = tk.Frame(event_log_frame)
     columns.pack(side="top", padx=5, pady=5)
     elog = tk.Label(columns)
     elog.pack(anchor="ne")
 
     # Additional information in two columns
-    additional_info_frame = tk.LabelFrame(root, text="Additional Information", width=60)
+    additional_info_frame = tk.LabelFrame(root, text="Additional Information:", width=60, labelanchor="n")
     left_column = tk.Frame(additional_info_frame)
     left_column.pack(side="left", padx=5, pady=5)
     right_column = tk.Frame(additional_info_frame)
@@ -208,12 +244,27 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam", width=50, height=50)
+    frame1 = tk.Frame(visible_frame)
+    frame1.pack(side="top", padx=0, pady=0)
+    VFrame = tk.Label(frame1)
+    VFrame.pack(anchor="e")
+
+    IR_frame = tk.LabelFrame(root, text="IR Cam", width=50, height=50)
+    frame2 = tk.Frame(IR_frame)
+    frame2.pack(side="top", padx=0, pady=0)
+    IRFrame = tk.Label(frame2)
+    IRFrame.pack(anchor="e")
+
+
     quadrant_1.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-    event_log_frame.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
+    event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
+    additional_info_frame.grid(row=2, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
+    visible_frame.grid(row=1, column=3, padx=0, pady=0, sticky="")
+    IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     
     cameras = {
         "Camera Stream 1": "Video/Cam1.mp4",
@@ -224,10 +275,9 @@ def create_gui(root):
 
     for camera_name, camera_address in cameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
-        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
+        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name, VFrame, IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-
-
+    # threading.Thread(target=add_frame, args=(Vframe,IRFrame, None, None), daemon=True).start()
 
 def on_closing():
     global running
