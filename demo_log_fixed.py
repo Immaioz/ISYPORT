@@ -12,11 +12,8 @@ lock = threading.Lock()
 # Load YOLO model
 model = YOLO('/home/antonino/Università/porto/train/ModelloTotale/weights/best.pt')
 
-#classes = list(model.names.values())
-
 # Global flag to control threads
 running = True
-
 global info, old_centerx, status, frames, frame_running
 
 frame_running = False
@@ -47,7 +44,6 @@ frames = {
     "IRCam": None
 }
 
-
 def resize_frame(bbox, frame, value):
     bbox = bbox.astype(int)
     x1,y1,x2,y2 = np.reshape(bbox, (4,))
@@ -55,11 +51,10 @@ def resize_frame(bbox, frame, value):
     height, width = frame.shape[:2]
     new_width = int(width * value / 100)
     new_height = int(height * value / 100)
-    resized_frame = cv2.resize(frame, (new_width, new_height))
-    return cropped_image
+    resized_frame = cv2.resize(cropped_image, (new_width, new_height))
+    return resized_frame
 
 def add_frame(VFrame, IRFrame, bbox):
-    # while True:
     for key, value in frames.items():
         if value is not None:
             if key == "VCam":
@@ -68,7 +63,7 @@ def add_frame(VFrame, IRFrame, bbox):
                 VFrame.configure(image=image)
                 VFrame.image = image
             elif key == "IRCam":
-                frame = resize_frame(bbox, value, 50)
+                frame = resize_frame(bbox, value, 20)
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
                 IRFrame.configure(image=image)
                 IRFrame.image = image
@@ -190,9 +185,9 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     info[camera_name] =  message
                     frame = frame.plot()
 
-                    # global frame_running 
-                    # if not frame_running:
-                    #     frame_running = True
+                    global frame_running 
+                    if not frame_running:
+                        frame_running = True
                     threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
                 else:
                     if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
@@ -256,15 +251,15 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam", width=50, height=50)
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam", width=50, height=50, labelanchor="n")
     frame1 = tk.Frame(visible_frame)
-    frame1.pack(side="top", padx=0, pady=0)
+    frame1.pack(side="top", padx=2, pady=0)
     VFrame = tk.Label(frame1)
     VFrame.pack(anchor="e")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam", width=50, height=50)
+    IR_frame = tk.LabelFrame(root, text="IR Cam", width=50, height=50, labelanchor="n")
     frame2 = tk.Frame(IR_frame)
-    frame2.pack(side="top", padx=0, pady=0)
+    frame2.pack(side="top", padx=2, pady=0)
     IRFrame = tk.Label(frame2)
     IRFrame.pack(anchor="e")
 
@@ -276,7 +271,7 @@ def create_gui(root):
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     additional_info_frame.grid(row=2, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
     visible_frame.grid(row=1, column=3, padx=0, pady=0, sticky="")
-    IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
+    IR_frame.grid(row=1, column=2, padx=0, pady=3, sticky="")
     
     cameras = {
         "Camera Stream 1": "Video/Cam1.mp4",
