@@ -214,7 +214,7 @@ def create_gui(root):
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="sw")
+    additional_info_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
     
     cameras = {
         "Camera Stream 1": "Video/Cam1.mp4",
