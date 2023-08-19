@@ -43,34 +43,41 @@ status = {
 }
 
 frames = {
-    "VCam": None,
-    "IRCam": None
+    "Camera Stream 1": [None, None],
+    "Camera Stream 2": [None, None],
+    "Camera Stream 3": [None, None],
+    "Camera Stream 4": [None, None]
 }
 
 def resize_frame(bbox, frame, value):
-    bbox = bbox.astype(int)
-    x1,y1,x2,y2 = np.reshape(bbox, (4,))
-    cropped_image = frame[y1:y2, x1:x2]
-    height, width = frame.shape[:2]
-    new_width = int(width * value / 100)
-    new_height = int(height * value / 100)
-    resized_frame = cv2.resize(cropped_image, (new_width, new_height))
+    if bbox is not None:
+        bbox = bbox.astype(int)
+        x1,y1,x2,y2 = np.reshape(bbox, (4,))
+        frame = frame[y1:y2, x1:x2]
+    target_width, target_height = 151, 68  # Adjust as needed
+    aspect_ratio = frame.shape[1] / frame.shape[0]
+    if aspect_ratio > target_width / target_height:
+        target_height = int(target_width / aspect_ratio)
+    else:
+        target_width = int(target_height * aspect_ratio)
+    resized_frame = cv2.resize(frame, (target_width, target_height))
     return resized_frame
 
-def add_frame(VFrame, IRFrame, bbox):
-    time.sleep(0.5)
-    for key, value in frames.items():
-        if value is not None:
-            if key == "VCam":
-                frame = resize_frame(bbox, value, 5)
-                image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-                VFrame.configure(image=image)
-                VFrame.image = image
-            elif key == "IRCam":
-                frame = resize_frame(bbox, value, 20)
-                image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-                IRFrame.configure(image=image)
-                IRFrame.image = image
+def add_frame(VFrame, IRFrame):
+    while running:
+        for key, value in frames.items():
+            bbox = value[1]
+            if value[0] is not None:
+                if key == "Camera Stream 1" or key == "Camera Stream 2":
+                    frame = resize_frame(bbox, value[0], 7)
+                    image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
+                    VFrame.configure(image=image)
+                    VFrame.image = image
+                elif key == "Camera Stream 3" or key == "Camera Stream 4":
+                    frame = resize_frame(bbox, value[0], 50)
+                    image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
+                    IRFrame.configure(image=image)
+                    IRFrame.image = image
 
 
 def get_weather():
@@ -103,7 +110,7 @@ def get_weather():
         print(f"An error occurred: {e}")
 
 def update_weather(title, l1,l2,r1,r2):
-    while True:
+    while running:
         message = get_weather()
         mex = message.split("\n")
         title.config(text=mex[0])
@@ -168,11 +175,10 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     label = frame[0].names[int(frame[0].boxes.cls[0])]
                     centerx, centery = calculate_box_center(box)
 
-                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                        frames["VCam"] = frame[0].orig_img.copy()
-                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                        frames["IRCam"] = frame[0].orig_img.copy()
-
+                    
+                    frames[camera_name][0] = frame[0].orig_img.copy()
+                    frames[camera_name][1] = box
+                    
                     if old_centerx[camera_name] == None:
                         old_centerx[camera_name] = centerx
                         state = "detected"
@@ -189,15 +195,13 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
                     info[camera_name] =  message
                     frame = frame.plot()
 
-                    global frame_running 
-                    if not frame_running:
-                        frame_running = True
-                    threading.Thread(target=add_frame, args=(VFrame,IRFrame, box), daemon=True).start()
+                    # global frame_running 
+                    # if not frame_running:
+                    #     frame_running = True
+                    #     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
                 else:
-                    if camera_name == "Camera Stream 1" or camera_name == "Camera Stream 2":
-                        frames["VCam"] = VIS_no_det
-                    elif camera_name == "Camera Stream 3" or camera_name == "Camera Stream 4":
-                        frames["IRCam"] = IR_no_det
+                    frames[camera_name][0] = None
+                    frames[camera_name][1] = None
 
                     info[camera_name] = None
 
@@ -221,10 +225,11 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name, VFra
 
 def create_gui(root):
     # Main area divided into 4 quadrants
-    quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_1 = tk.Label(root, bg="grey", width=350, height=300)  # Larger size for higher resolution
+
+    quadrant_2 = tk.Label(root, bg="grey", width=350, height=300)  # Larger size for higher resolution
+    quadrant_3 = tk.Label(root, bg="grey", width=350, height=300)  # Larger size for higher resolution
+    quadrant_4 = tk.Label(root, bg="grey", width=350, height=300)  # Larger size for higher resolution
 
     # Event log frame
     event_log_frame = tk.LabelFrame(root, text="Event Log:", height=30, labelanchor="n")
@@ -255,13 +260,15 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=50, height=50, labelanchor="n")
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=151, height=68, labelanchor="n")
+    visible_frame.pack_propagate(0)
     frame1 = tk.Frame(visible_frame)
     frame1.pack(side="top", padx=2, pady=0)
     VFrame = tk.Label(frame1)
     VFrame.pack(anchor="e")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=50, height=50, labelanchor="n")
+    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=151, height=68, labelanchor="n")
+    IR_frame.pack_propagate(0)
     frame2 = tk.Frame(IR_frame)
     frame2.pack(side="top", padx=2, pady=0)
     IRFrame = tk.Label(frame2)
@@ -288,6 +295,8 @@ def create_gui(root):
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name, VFrame, IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
+    threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
+
 
 def on_closing():
     global running
