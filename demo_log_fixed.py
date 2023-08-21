@@ -43,19 +43,62 @@ frames = {
     "Camera Stream 4": [None, None]
 }
 
-def resize_frame(bbox, frame):
-    if bbox is not None:
-        bbox = bbox.astype(int)
-        x1,y1,x2,y2 = np.reshape(bbox, (4,))
-        frame = frame[y1:y2, x1:x2]
-    target_width, target_height = 151, 72  # Adjust as needed
-    aspect_ratio = frame.shape[1] / frame.shape[0]
-    if aspect_ratio > target_width / target_height:
-        target_height = int(target_width / aspect_ratio)
-    else:
-        target_width = int(target_height * aspect_ratio)
-    resized_frame = cv2.resize(frame, (target_width, target_height))
-    return resized_frame
+
+
+def update_time(title):
+    while running:
+        current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
+        name = current_time + ", Augusta:"
+        title.config(text=name)
+        time.sleep(0.5)
+
+def update_weather(l1,l2,r1,r2):
+        message = get_weather()
+        mex = message.split("\n")        
+        l1.config(text=mex[0])
+        l2.config(text=mex[1])
+        r1.config(text=mex[2])
+        r2.config(text=mex[3])
+        time.sleep(10)
+
+
+def get_weather():
+    api_key = "916923f32ca072e53d4f02822dbc6968"
+    city = "Augusta, IT"  
+    units = "metric"   
+    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&units={units}&appid={api_key}"
+    try:
+        response = requests.get(base_url)
+        data = response.json()
+        
+        if response.status_code == 200:
+            weather_description = data["weather"][0]["description"]
+            temperature = data["main"]["temp"]
+            humidity = data["main"]["humidity"]
+            wind_speed = data["wind"]["speed"]
+            
+            message = (
+                f"Weather: {weather_description}\n"
+                f"Temperature: {temperature}°C\n"
+                f"Humidity: {humidity}%\n"
+                f"Wind Speed: {wind_speed} m/s\n"
+            )
+        else:
+            print(f"Error: {data['message']}")
+        return message
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+
+def add_event(event_log, messages, image):
+    text = ""
+    for key, value in messages.items():
+        if value == None:
+            text = text + key + " : No detection " + "\n"
+        else:
+            text = text + key + " : " + value + "\n"
+    event_log.config(text= text)
 
 def add_frame(VFrame, IRFrame):
     while running:
@@ -103,92 +146,21 @@ def add_frame(VFrame, IRFrame):
                 IRFrame.configure(image=image)
                 IRFrame.image = image
 
-
-        # for key, value in frames.items():
-        #     if value[0] is not None:
-        #         bbox = value[1]
-        #         if status[key] == "leaving":
-        #             if key == "Camera Stream 1":
-        #                 frame = resize_frame(bbox, value[0])
-        #                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-        #                 VFrame.configure(image=image)
-        #                 VFrame.image = image
-        #             if key == "Camera Stream 3":
-        #                 frame = resize_frame(bbox, value[0])
-        #                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-        #                 IRFrame.configure(image=image)
-        #                 IRFrame.image = image
-        #         elif status[key] == "approaching":
-        #             if key == "Camera Stream 2":
-        #                 frame = resize_frame(bbox, value[0])
-        #                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-        #                 VFrame.configure(image=image)
-        #                 VFrame.image = image
-        #             if key == "Camera Stream 4":
-        #                 frame = resize_frame(bbox, value[0])
-        #                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-        #                 IRFrame.configure(image=image)
-        #                 IRFrame.image = image
-
-                # if key == "Camera Stream 1" or key == "Camera Stream 2":
-                    
-
-                #         frame = resize_frame(bbox, value[0])
-                #         image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-                #         VFrame.configure(image=image)
-                #         VFrame.image = image
-                # elif key == "Camera Stream 3" or key == "Camera Stream 4":
-                #     frame = resize_frame(bbox, value[0])
-                #     image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
-                #     IRFrame.configure(image=image)
-                #     IRFrame.image = image
+def resize_frame(bbox, frame):
+    if bbox is not None:
+        bbox = bbox.astype(int)
+        x1,y1,x2,y2 = np.reshape(bbox, (4,))
+        frame = frame[y1:y2, x1:x2]
+    target_width, target_height = 151, 72  # Adjust as needed
+    aspect_ratio = frame.shape[1] / frame.shape[0]
+    if aspect_ratio > target_width / target_height:
+        target_height = int(target_width / aspect_ratio)
+    else:
+        target_width = int(target_height * aspect_ratio)
+    resized_frame = cv2.resize(frame, (target_width, target_height))
+    return resized_frame
 
 
-def get_weather():
-    api_key = "916923f32ca072e53d4f02822dbc6968"
-    city = "Augusta, IT"  
-    units = "metric"   
-    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&units={units}&appid={api_key}"
-    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
-    try:
-        response = requests.get(base_url)
-        data = response.json()
-        
-        if response.status_code == 200:
-            weather_description = data["weather"][0]["description"]
-            temperature = data["main"]["temp"]
-            humidity = data["main"]["humidity"]
-            wind_speed = data["wind"]["speed"]
-            
-            message = (
-                f"{current_time}, Augusta:\n"
-                f"Weather: {weather_description}\n"
-                f"Temperature: {temperature}°C\n"
-                f"Humidity: {humidity}%\n"
-                f"Wind Speed: {wind_speed} m/s\n"
-            )
-        else:
-            print(f"Error: {data['message']}")
-        return message
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-def update_weather(title, l1,l2,r1,r2):
-    while running:
-        current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
-        name = current_time + ", Augusta:"
-        title.config(text=name)
-        time.sleep(0.5)
-
-
-
-        # message = get_weather()
-        # mex = message.split("\n")        
-        # l1.config(text=mex[1])
-        # l2.config(text=mex[2])
-        # r1.config(text=mex[3])
-        # r2.config(text=mex[4])
-        # time.sleep(1)
 
 def calculate_box_center(corners):
     bbox = np.reshape(corners, (4,))
@@ -204,14 +176,7 @@ def determine_movement_direction(x1, x2):
     elif delta_x < 0:
         return "leaving"
 
-def add_event(event_log, messages, image):
-    text = ""
-    for key, value in messages.items():
-        if value == None:
-            text = text + key + " : No detection " + "\n"
-        else:
-            text = text + key + " : " + value + "\n"
-    event_log.config(text= text)
+
 
 def detect_objects(frame):
 
@@ -255,10 +220,6 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         old = status[camera_name][0]
                         status[camera_name][1] = determine_movement_direction(centerx, old)
                         status["Total"] = status[camera_name][1]
-                        # if status[camera_name] == False:
-                        #     state = "leaving"
-                        # else:
-                        #     state = "approaching"
         
                     message = "A " + label + " is " + status[camera_name][1]
                     
@@ -275,13 +236,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 
                 if (all(value is None for value in info.values())):
                     status["Total"] = None
-                # global frame_running 
-                # if (all(value is None for value in info.values())):
-                #     frame_running = False
-                # if any(value is not None for value in info.values()):
-                #     if not frame_running:
-                #         frame_running = True
-                #         threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
+
                 target_width, target_height = 350, 300  # Adjust as needed
                 aspect_ratio = frame.shape[1] / frame.shape[0]
                 if aspect_ratio > target_width / target_height:
@@ -299,6 +254,8 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 break
 
         cap.release()
+
+
 
 def create_gui(root):
     # Main area divided into 4 quadrants
@@ -372,8 +329,8 @@ def create_gui(root):
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
-    threading.Thread(target=update_weather, args=(additional_info_frame,left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-    
+    threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
+    threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
 
 def on_closing():
     global running, frame_running
