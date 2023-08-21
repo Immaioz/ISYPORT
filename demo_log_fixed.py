@@ -202,7 +202,7 @@ def save_log(data):
 
 def detect_objects(frame):
 
-    results = model(frame, device=1, imgsz=(800,480), verbose=False)
+    results = model(frame, device=0, imgsz=(800,480), verbose=False)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -342,7 +342,7 @@ def create_gui(root):
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=5, pady=5, sticky="ew")
+    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="ew")
     visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     
