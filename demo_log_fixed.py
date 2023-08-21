@@ -6,7 +6,8 @@ import numpy as np
 import requests
 from datetime import datetime
 from ultralytics import YOLO
-
+import csv
+import os
 
 
 lock = threading.Lock()
@@ -16,7 +17,9 @@ model = YOLO('models/Model/weights/best.pt')
 
 # Global flag to control threads
 running = True
-global info, old_centerx, status, frames
+
+global info, old_centerx, status, frames, start_time
+start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
 
 no_det = cv2.imread("utils/nodetect.png")
 
@@ -42,7 +45,12 @@ frames = {
     "Camera Stream 4": [None, None]
 }
 
-
+logs = {
+    "Camera Stream 1": [None, None, False],
+    "Camera Stream 2": [None, None, False],
+    "Camera Stream 3": [None, None, False],
+    "Camera Stream 4": [None, None, False]
+}
 
 def update_time(title):
     while running:
@@ -180,11 +188,21 @@ def determine_movement_direction(x1, x2):
     elif delta_x < 0:
         return "leaving"
 
+def save_log(data):
+    filename = start_time + "_log.csv" 
+    file_exists = os.path.exists(filename)
+    fieldnames = "Camera,Label,Time,Direction of travel"
+    with open(filename, "a") as file:
+        if not file_exists:
+            file.write(fieldnames)
+            file.write("\n")
+        file.write(data)
+        file.write("\n")
 
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, imgsz=(800,480), verbose=False)
+    results = model(frame, device=1, imgsz=(800,480), verbose=False)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -213,33 +231,38 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     centerx, centery = calculate_box_center(box)
 
                     
-                    frames[camera_name][0] = frame[0].orig_img.copy()
-                    frames[camera_name][1] = box
+
                     
                     if status[camera_name][0] == None:
                         status[camera_name][0] = centerx
                         status[camera_name][1] = "detected"
                         status["Total"] = "detected"
+                        logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
+                        logs[camera_name][1] = label
                     else:
+                        frames[camera_name][0] = frame[0].orig_img.copy()
+                        frames[camera_name][1] = box
                         old = status[camera_name][0]
                         status[camera_name][1] = determine_movement_direction(centerx, old)
                         status["Total"] = status[camera_name][1]
-        
+                        if logs[camera_name][2] is False:
+                            logs[camera_name][2] = True
+                            data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][1]
+                            save_log(data)
                     message = "A " + label + " is " + status[camera_name][1]
-                    
+
                     info[camera_name] =  message
                     frame = frame.plot()
 
-                    
-
                 else:
-                    frames[camera_name][0] = None
-                    frames[camera_name][1] = None
-
+                    frames[camera_name] = [None, None]
                     info[camera_name] = None
 
                 if (all(value is None for value in info.values())):
                     status["Total"] = None
+                    print("qui")
+                    for key in logs:
+                        logs[key][2] = False
 
                 target_width, target_height = 350, 300  # Adjust as needed
                 aspect_ratio = frame.shape[1] / frame.shape[0]
@@ -248,7 +271,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 else:
                     target_width = int(target_height * aspect_ratio)
                 resized_frame = cv2.resize(frame, (target_width, target_height))
-                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes())
+                image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes()) #Exception has occurred: RuntimeError Too early to create image: no default root window
                 quadrant.configure(image=image)
                 quadrant.image = image
                 add_event(event_log, info, image)
