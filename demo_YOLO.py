@@ -104,7 +104,7 @@ def add_event(event_log, messages):
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, imgsz=(800,480), verbose=False)
+    results = model(frame, device=0, imgsz=(350,300), verbose=False)
 
     if len(results[0].boxes) != 0:
         return results[0], True

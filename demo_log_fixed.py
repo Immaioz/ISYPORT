@@ -14,12 +14,9 @@ model = YOLO('models/Model/weights/best.pt')
 
 # Global flag to control threads
 running = True
-global info, old_centerx, status, frames, frame_running
+global info, old_centerx, status, frames
 
-frame_running = True
-
-IR_no_det = cv2.imread("utils/IRCAM_NODETECT.png")
-VIS_no_det = cv2.imread("utils/VCAM_NODETECT.png")
+no_det = cv2.imread("utils/nodetect.png")
 
 info = {
     "Camera Stream 1": None,
@@ -60,7 +57,6 @@ def update_weather(l1,l2,r1,r2):
         r1.config(text=mex[2])
         r2.config(text=mex[3])
         time.sleep(10)
-
 
 def get_weather():
     api_key = "916923f32ca072e53d4f02822dbc6968"
@@ -103,7 +99,6 @@ def add_event(event_log, messages, image):
 def add_frame(VFrame, IRFrame):
     while running:
         flag = False
-        print(status["Total"])
         if status["Total"] == "leaving":
             flag = True
             if frames["Camera Stream 1"][1] is not None:
@@ -133,7 +128,13 @@ def add_frame(VFrame, IRFrame):
             else:
                 IRbbox = frames["Camera Stream 3"][1]
                 IRfr = frames["Camera Stream 3"][0]
-
+        elif status["Total"] == None:
+            flag = True
+            IRfr = no_det
+            Vfr = no_det
+            Vbbox = None
+            IRbbox = None
+        
         if flag is True:
             if Vfr is not None:
                 frame = resize_frame(Vbbox, Vfr)
@@ -180,7 +181,7 @@ def determine_movement_direction(x1, x2):
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, verbose=False)
+    results = model(frame, device=0, imgsz=(800,480), verbose=False)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -260,7 +261,6 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 def create_gui(root):
     # Main area divided into 4 quadrants
     quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-
     quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
     quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
@@ -294,10 +294,12 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
+
+    # Visibile and IR Cam frames
     visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=151, height=72, labelanchor="n")
     visible_frame.pack_propagate(0)
     frame1 = tk.Frame(visible_frame)
-    frame1.pack(side="top", padx=2, pady=0)
+    frame1.pack(side="top", padx=0, pady=0)
     VFrame = tk.Label(frame1)
     VFrame.pack(anchor="e")
 
@@ -314,9 +316,9 @@ def create_gui(root):
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
-    visible_frame.grid(row=1, column=3, padx=0, pady=0, sticky="")
-    IR_frame.grid(row=1, column=2, padx=0, pady=3, sticky="")
+    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=5, pady=5, sticky="ew")
+    visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
+    IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     
     cameras = {
         "Camera Stream 1": "Video/Cam1.mp4",
@@ -333,9 +335,8 @@ def create_gui(root):
     threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
 
 def on_closing():
-    global running, frame_running
+    global running
     running = False  # Set the global flag to stop threads
-    frame_running = False
     root.destroy()   # Destroy the main GUI window
 
 if __name__ == "__main__":
