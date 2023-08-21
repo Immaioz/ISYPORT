@@ -7,6 +7,8 @@ import requests
 from datetime import datetime
 from ultralytics import YOLO
 
+
+
 lock = threading.Lock()
 
 # Load YOLO model
@@ -50,6 +52,7 @@ def update_time(title):
         time.sleep(0.5)
 
 def update_weather(l1,l2,r1,r2):
+    while running:
         message = get_weather()
         mex = message.split("\n")        
         l1.config(text=mex[0])
