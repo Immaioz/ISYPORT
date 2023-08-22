@@ -52,6 +52,8 @@ logs = {
     "Camera Stream 4": [None, None, False]
 }
 
+
+
 def update_time(title):
     while running:
         current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
