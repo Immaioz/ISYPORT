@@ -59,7 +59,7 @@ def update_time(title):
         current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
         name = current_time + ", Augusta:"
         title.config(text=name)
-        time.sleep(0.5)
+        root.after(1000, update_time, title)
 
 def update_weather(l1,l2,r1,r2):
     while running:
