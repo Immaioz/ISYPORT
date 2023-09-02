@@ -262,7 +262,6 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 
                 if (all(value is None for value in info.values())):
                     status["Total"] = None
-                    print("qui")
                     for key in logs:
                         logs[key][2] = False
 
@@ -288,10 +287,10 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 
 def create_gui(root):
     # Main area divided into 4 quadrants
-    quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_1 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
+    quadrant_2 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
+    quadrant_3 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
+    quadrant_4 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
 
     # Event log frame
     event_log_frame = tk.LabelFrame(root, text="Event Log:", height=30, labelanchor="n")
@@ -349,10 +348,10 @@ def create_gui(root):
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     
     cameras = {
-        "Camera Stream 1": "Video/Cam1.mp4",
-        "Camera Stream 2": "Video/Cam2.mp4",
-        "Camera Stream 3": "Video/Cam3.mp4",
-        "Camera Stream 4": "Video/Cam4.mp4"
+        "Camera Stream 1": "Video/Test1/Cam1.mp4",
+        "Camera Stream 2": "Video/Test1/Cam2.mp4",
+        "Camera Stream 3": "Video/Test1/Cam3.mp4",
+        "Camera Stream 4": "Video/Test1/Cam4.mp4"
     }
 
     for camera_name, camera_address in cameras.items():
