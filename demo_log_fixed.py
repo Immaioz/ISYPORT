@@ -55,11 +55,10 @@ logs = {
 
 
 def update_time(title):
-    while running:
-        current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
-        name = current_time + ", Augusta:"
-        title.config(text=name)
-        root.after(1000, update_time, title)
+    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
+    name = current_time + ", Augusta:"
+    title.config(text=name)
+    root.after(5000,update_time,title)
 
 def update_weather(l1,l2,r1,r2):
     while running:
@@ -204,7 +203,7 @@ def save_log(data):
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, imgsz=(800,480), verbose=False)
+    results = model(frame, device=0, imgsz=(800,480), verbose=False, iou=0.9, conf=0.5)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -287,10 +286,10 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 
 def create_gui(root):
     # Main area divided into 4 quadrants
-    quadrant_1 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
-    quadrant_2 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
-    quadrant_3 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
-    quadrant_4 = tk.Label(root, bg="grey", width=35, height=15)  # Larger size for higher resolution
+    quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
 
     # Event log frame
     event_log_frame = tk.LabelFrame(root, text="Event Log:", height=30, labelanchor="n")
@@ -300,7 +299,7 @@ def create_gui(root):
     elog.pack(anchor="ne")
 
     # Additional information in two columns
-    additional_info_frame = tk.LabelFrame(root, text="Additional Information:", width=60, labelanchor="n")
+    additional_info_frame = tk.LabelFrame(root, text="Weather in Augusta:", width=60, labelanchor="n")
     left_column = tk.Frame(additional_info_frame)
     left_column.pack(side="left", padx=5, pady=5)
     right_column = tk.Frame(additional_info_frame)
@@ -348,10 +347,10 @@ def create_gui(root):
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     
     cameras = {
-        "Camera Stream 1": "Video/Test1/Cam1.mp4",
-        "Camera Stream 2": "Video/Test1/Cam2.mp4",
-        "Camera Stream 3": "Video/Test1/Cam3.mp4",
-        "Camera Stream 4": "Video/Test1/Cam4.mp4"
+        "Camera Stream 1": "Video/Multiboat/Cam1.mp4",
+        "Camera Stream 2": "Video/Multiboat/Cam2.mp4",
+        "Camera Stream 3": "Video/Multiboat/Cam3.mp4",
+        "Camera Stream 4": "Video/Multiboat/Cam4.mp4"
     }
 
     for camera_name, camera_address in cameras.items():
@@ -359,7 +358,7 @@ def create_gui(root):
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-    threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
+    # threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
 
 def on_closing():
     global running
