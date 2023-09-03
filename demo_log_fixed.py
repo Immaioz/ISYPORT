@@ -332,15 +332,24 @@ def create_gui(root):
     IRFrame = tk.Label(frame2)
     IRFrame.pack(anchor="e")
 
+    #Risk indicator
+    Risk_frame = tk.LabelFrame(root, text="Risk indicator:", height=72, labelanchor="n")
+    Risk_frame.pack_propagate(0)
+    frame3 = tk.Frame(Risk_frame)
+    frame3.pack(side="top", padx=2, pady=2)
+    RiskFrame = tk.Label(frame3)
+    RiskFrame.pack(anchor="n")
+
 
     quadrant_1.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="ew")
+    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="w")
     visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
+    Risk_frame.grid(row=2, column=2, rowspan=2, padx=0, pady=5, sticky="")
     
     cameras = {
         "Camera Stream 1": "Video/Multiboat/Cam1.mp4",

@@ -2,3 +2,4 @@ testing.ipynb
 *.csv
 Video/Multiboat
 config.py
+__pycache__
