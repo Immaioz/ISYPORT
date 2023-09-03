@@ -8,7 +8,7 @@ from datetime import datetime
 from ultralytics import YOLO
 import csv
 import os
-
+import config
 
 lock = threading.Lock()
 
@@ -31,10 +31,10 @@ info = {
 }
 
 status = {
-    "Camera Stream 1": [None, None],
-    "Camera Stream 2": [None, None],
-    "Camera Stream 3": [None, None],
-    "Camera Stream 4": [None, None],
+    "Camera Stream 1": [None, None, None],
+    "Camera Stream 2": [None, None, None],
+    "Camera Stream 3": [None, None, None],
+    "Camera Stream 4": [None, None, None],
     "Total" : None
 }
 
@@ -71,12 +71,10 @@ def update_weather(l1,l2,r1,r2):
         time.sleep(10)
 
 def get_weather():
-    api_key = "916923f32ca072e53d4f02822dbc6968"
-    city = "Augusta, IT"  
-    units = "metric"   
-    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&units={units}&appid={api_key}"
+    base_url = "https://api.openweathermap.org/data/2.5/weather?"
+    final_url = base_url + "appid=" + config.api_key + "&id=" + config.city_id + "&units=" + config.units
     try:
-        response = requests.get(base_url)
+        response = requests.get(final_url)
         data = response.json()
         
         if response.status_code == 200:
@@ -182,7 +180,7 @@ def calculate_box_center(corners):
     center_y = (ymin + ymax) / 2
     return center_x, center_y
 
-def determine_movement_direction(x1, x2):
+def determine_movement_direction(x1, y1, x2):
     delta_x = x2 - x1
     if delta_x > 0:
         return "approaching"
@@ -203,7 +201,7 @@ def save_log(data):
 
 def detect_objects(frame):
 
-    results = model(frame, device=0, imgsz=(800,480), verbose=False, iou=0.9, conf=0.5)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.9, conf=0.5)
 
     if len(results[0].boxes) != 0:
         return results[0], True
@@ -230,13 +228,11 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     box = frame[0].boxes.xyxy[0].cpu().numpy()
                     label = frame[0].names[int(frame[0].boxes.cls[0])]
                     centerx, centery = calculate_box_center(box)
-
-                    
-
                     
                     if status[camera_name][0] == None:
                         status[camera_name][0] = centerx
-                        status[camera_name][1] = "detected"
+                        status[camera_name][1] = centery
+                        status[camera_name][2] = "detected"
                         status["Total"] = "detected"
                         logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
                         logs[camera_name][1] = label
@@ -244,13 +240,13 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         frames[camera_name][0] = frame[0].orig_img.copy()
                         frames[camera_name][1] = box
                         old = status[camera_name][0]
-                        status[camera_name][1] = determine_movement_direction(centerx, old)
-                        status["Total"] = status[camera_name][1]
+                        status[camera_name][2] = determine_movement_direction(centerx, centery, old)
+                        status["Total"] = status[camera_name][2]
                         if logs[camera_name][2] is False:
                             logs[camera_name][2] = True
-                            data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][1]
+                            data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
                             save_log(data)
-                    message = "A " + label + " is " + status[camera_name][1]
+                    message = "A " + label + " is " + status[camera_name][2]
 
                     info[camera_name] =  message
                     frame = frame.plot()
@@ -264,7 +260,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     for key in logs:
                         logs[key][2] = False
 
-                target_width, target_height = 350, 300  # Adjust as needed
+                target_width, target_height = 320, 352  # Adjust as needed
                 aspect_ratio = frame.shape[1] / frame.shape[0]
                 if aspect_ratio > target_width / target_height:
                     target_height = int(target_width / aspect_ratio)
