@@ -351,10 +351,10 @@ def create_gui(root):
     Risk_frame.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky="")
     
     cameras = {
-        "Camera Stream 1": "Video/Multiboat/Cam1.mp4",
-        "Camera Stream 2": "Video/Multiboat/Cam2.mp4",
-        "Camera Stream 3": "Video/Multiboat/Cam3.mp4",
-        "Camera Stream 4": "Video/Multiboat/Cam4.mp4"
+        "Camera Stream 1": "Video/Multi/cam1.mp4",
+        "Camera Stream 2": "Video/Multi/cam2.mp4",
+        "Camera Stream 3": "Video/Multi/cam3.mp4",
+        "Camera Stream 4": "Video/Multi/cam4.mp4"
     }
 
     for camera_name, camera_address in cameras.items():
