@@ -18,16 +18,16 @@ model = YOLO('models/Model/weights/best.pt')
 # Global flag to control threads
 running = True
 
-global info, old_centerx, status, frames, start_time
+global info, old_centerx, status, frames, start_time, messages
 start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
 
 no_det = cv2.imread("utils/nodetect.png")
 
 info = {
-    "Camera Stream 1": None,
-    "Camera Stream 2": None,
-    "Camera Stream 3": None,
-    "Camera Stream 4": None
+    "Camera Stream 1": [None, None],
+    "Camera Stream 2": [None, None],
+    "Camera Stream 3": [None, None],
+    "Camera Stream 4": [None, None]
 }
 
 status = {
@@ -52,6 +52,12 @@ logs = {
     "Camera Stream 4": [None, None, False]
 }
 
+result = {
+    "Camera Stream 1": [None, None],
+    "Camera Stream 2": [None, None],
+    "Camera Stream 3": [None, None],
+    "Camera Stream 4": [None, None]
+}
 
 
 def update_time(title):
@@ -97,14 +103,15 @@ def get_weather():
 
 
 
-def add_event(event_log, messages, image):
-    text = ""
+def add_event(event_log, messages):
+    text = "" 
     for key, value in messages.items():
-        if value == None:
-            text = text + key + " : No detection " + "\n"
-        else:
-            text = text + key + " : " + value + "\n"
-    event_log.config(text= text)
+        for i in range (int(len(value)/2)):
+            if value[0] is None:
+                text = text + key + " : No detection " + "\n"
+            else:
+                text = text + key + " : " + value[0] + "\n"
+    event_log.config(text = text)
 
 def add_frame(VFrame, IRFrame):
     while running:
@@ -201,12 +208,17 @@ def save_log(data):
 
 def detect_objects(frame):
 
+    bbox = []
+    labels = []
     results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.9, conf=0.5)
 
     if len(results[0].boxes) != 0:
-        return results[0], True
+        for i in range (len(results[0].boxes)):
+            labels.append(results[0].names[int(results[0].boxes.cls[i])])
+            bbox.append(results[0].boxes.xyxy[i].cpu().numpy())
+        return results[0], True, bbox, labels
 
-    return frame, False
+    return frame, False, None, None
 
 def display_camera_stream(camera_address, quadrant, event_log, camera_name):
     
@@ -221,39 +233,69 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
             ret, frame = cap.read()
             
             if ret:
-                with lock:
-                    frame, flag = detect_objects(frame)  # Perform object detection on the frame
+                with lock:  
+                    frame, flag, result[camera_name][0], result[camera_name][1] = detect_objects(frame)  # Perform object detection on the frame
 
                 if flag:
-                    box = frame[0].boxes.xyxy[0].cpu().numpy()
-                    label = frame[0].names[int(frame[0].boxes.cls[0])]
-                    centerx, centery = calculate_box_center(box)
-                    
-                    if status[camera_name][0] == None:
-                        status[camera_name][0] = centerx
-                        status[camera_name][1] = centery
-                        status[camera_name][2] = "detected"
-                        status["Total"] = "detected"
-                        logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
-                        logs[camera_name][1] = label
+                    info[camera_name][1] = ""
+                    if (len(result[camera_name][1]) > 1):
+                        for i in range (len(result[camera_name][0])):
+                            box = result[camera_name][0][i]
+                            label =  result[camera_name][1][i]
+                            centerx, centery = calculate_box_center(box)
+                            if status[camera_name][0] == None:
+                                status[camera_name][0] = centerx
+                                status[camera_name][1] = centery
+                                status[camera_name][2] = "detected"
+                                status["Total"] = "detected"
+                                # logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
+                                logs[camera_name][1] = label
+                            else:
+                                if (i == 0):
+                                    frames[camera_name][0] = frame[0].orig_img.copy()
+                                frames[camera_name][1] = box
+                                old = status[camera_name][0]
+                                status[camera_name][2] = determine_movement_direction(centerx, centery, old)
+                                status["Total"] = status[camera_name][2]
+                                if logs[camera_name][2] is False:
+                                    logs[camera_name][2] = True
+                                    # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
+                                    # save_log(data)
+                            message = "A " + label + " is " + status[camera_name][2]
+                            if not info[camera_name][1]:
+                                info[camera_name][1] = message
+                            else:
+                                info[camera_name][1] = info[camera_name][1] + " & " + message
+                            info[camera_name][0] = info[camera_name][1]
+                        frame = frame.plot()
                     else:
-                        frames[camera_name][0] = frame[0].orig_img.copy()
-                        frames[camera_name][1] = box
-                        old = status[camera_name][0]
-                        status[camera_name][2] = determine_movement_direction(centerx, centery, old)
-                        status["Total"] = status[camera_name][2]
-                        if logs[camera_name][2] is False:
-                            logs[camera_name][2] = True
-                            data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
-                            save_log(data)
-                    message = "A " + label + " is " + status[camera_name][2]
-
-                    info[camera_name] =  message
-                    frame = frame.plot()
-
+                        box = frame[0].boxes.xyxy[0].cpu().numpy()
+                        label = frame[0].names[int(frame[0].boxes.cls[0])]
+                        centerx, centery = calculate_box_center(box)
+                        
+                        if status[camera_name][0] == None:
+                            status[camera_name][0] = centerx
+                            status[camera_name][1] = centery
+                            status[camera_name][2] = "detected"
+                            status["Total"] = "detected"
+                            #logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
+                            logs[camera_name][1] = label
+                        else:
+                            frames[camera_name][0] = frame[0].orig_img.copy()
+                            frames[camera_name][1] = box
+                            old = status[camera_name][0]
+                            status[camera_name][2] = determine_movement_direction(centerx, centery, old)
+                            status["Total"] = status[camera_name][2]
+                            if logs[camera_name][2] is False:
+                                logs[camera_name][2] = True
+                                # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
+                                # save_log(data)
+                        message = "A " + label + " is " + status[camera_name][2]
+                        info[camera_name][0] =  message
+                        frame = frame.plot()
                 else:
                     frames[camera_name] = [None, None]
-                    info[camera_name] = None
+                    info[camera_name] = [None, None]
 
                 if (all(value is None for value in info.values())):
                     status["Total"] = None
@@ -270,7 +312,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", resized_frame)[1].tobytes()) #Exception has occurred: RuntimeError Too early to create image: no default root window
                 quadrant.configure(image=image)
                 quadrant.image = image
-                add_event(event_log, info, image)
+                add_event(event_log, info)
             else:
                 print(f"Failed to read frame from camera: {camera_address}. Retrying...")
                 cap.release()
@@ -288,10 +330,11 @@ def create_gui(root):
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
 
     # Event log frame
-    event_log_frame = tk.LabelFrame(root, text="Event Log:", height=30, labelanchor="n")
+    event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=300,  labelanchor="n")
+    event_log_frame.pack_propagate(0)
     columns = tk.Frame(event_log_frame)
     columns.pack(side="top", padx=5, pady=5)
-    elog = tk.Label(columns)
+    elog = tk.Label(columns, wraplength=350)
     elog.pack(anchor="ne")
 
     # Additional information in two columns
@@ -320,9 +363,9 @@ def create_gui(root):
     # Visibile and IR Cam frames
     visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=151, height=72, labelanchor="n")
     visible_frame.pack_propagate(0)
-    frame1 = tk.Frame(visible_frame)
-    frame1.pack(side="top", padx=0, pady=0)
-    VFrame = tk.Label(frame1)
+    frame = tk.Frame(visible_frame)
+    frame.pack(side="top", padx=0, pady=0)
+    VFrame = tk.Label(frame)
     VFrame.pack(anchor="e")
 
     IR_frame = tk.LabelFrame(root, text="IR Cam:", width=151, height=72, labelanchor="n")
