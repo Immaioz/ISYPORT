@@ -4,8 +4,8 @@
 
 ### TODO
 - [ ] Solve exception "Too early to create image: no default root window" on row 274 
-- [ ] Fix positions and dimensions for quadrants
+- [x] Fix positions and dimensions for quadrants
 - [x] Fix flickering (update_time function)
-- [ ] Add risk factor
+- [x] Add risk factor (Placeholder)
 - [ ] Use more threads (?)
-- [ ] Add multiple boat support WIP
+- [x] Add multiple boat support WIP
