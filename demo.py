@@ -61,10 +61,10 @@ result = {
 
 
 def update_time(title):
-    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M:%S")
+    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
     name = current_time + ", Augusta:"
     title.config(text=name)
-    root.after(5000,update_time,title)
+    root.after(60000,update_time,title)
 
 def update_weather(l1,l2,r1,r2):
     while running:
@@ -325,9 +325,13 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 def create_gui(root):
     # Main area divided into 4 quadrants
     quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_1.pack_propagate(0)
     quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_2.pack_propagate(0)
     quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_3.pack_propagate(0)
     quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    quadrant_4.pack_propagate(0)
 
     # Event log frame
     event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=300,  labelanchor="n")
@@ -359,19 +363,18 @@ def create_gui(root):
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
 
-
     # Visibile and IR Cam frames
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=151, height=72, labelanchor="n")
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=155, height=80, labelanchor="n")
     visible_frame.pack_propagate(0)
     frame = tk.Frame(visible_frame)
-    frame.pack(side="top", padx=0, pady=0)
+    frame.pack(side="top", padx=2, pady=2)
     VFrame = tk.Label(frame)
     VFrame.pack(anchor="e")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=151, height=72, labelanchor="n")
+    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=155, height=80, labelanchor="n")
     IR_frame.pack_propagate(0)
     frame2 = tk.Frame(IR_frame)
-    frame2.pack(side="top", padx=2, pady=0)
+    frame2.pack(side="top", padx=2, pady=2)
     IRFrame = tk.Label(frame2)
     IRFrame.pack(anchor="e")
 
@@ -388,16 +391,19 @@ def create_gui(root):
     quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
+    # event_log_frame_2.grid(row=0, column=5, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="w")
     visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     Risk_frame.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky="")
+    # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
+    # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
     
     cameras = {
-        "Camera Stream 1": "Video/Multi/cam1.mp4",
-        "Camera Stream 2": "Video/Multi/cam2.mp4",
-        "Camera Stream 3": "Video/Multi/cam3.mp4",
-        "Camera Stream 4": "Video/Multi/cam4.mp4"
+        "Camera Stream 1": "Video/test2/Cam1.mp4",
+        "Camera Stream 2": "Video/test2/Cam2.mp4",
+        "Camera Stream 3": "Video/test2/Cam3.mp4",
+        "Camera Stream 4": "Video/test2/Cam4.mp4"
     }
 
     for camera_name, camera_address in cameras.items():
@@ -405,7 +411,7 @@ def create_gui(root):
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-    # threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
+    threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
 
 def on_closing():
     global running
