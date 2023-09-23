@@ -9,7 +9,7 @@ model = YOLO('/home/antonino/Università/porto/train/ModelloTotale/weights/best.
 video_path = "test1.mp4"
 #cap = cv2.VideoCapture(video_path)
 
-video_files = ['Video/Cam1.mp4', 'Video/Cam2.mp4', 'Video/Cam3.mp4', 'Video/Cam4.mp4']
+video_files = ['Video/SimpleTest/Cam1.mp4', 'Video/SimpleTest/Cam2.mp4', 'Video/SimpleTest/Cam3.mp4', 'Video/SimpleTest/Cam4.mp4']
 caps = [cv2.VideoCapture(file) for file in video_files]
 
 old_centerx = float('inf')
@@ -68,6 +68,7 @@ while True:
                 # Draw a point at the center on the image
                 center_point = (int(centerx), int(centery))
                 #print(center_point)
+                print("y:", centery, "x:",centerx)
                 cv2.circle(frame, center_point, 50, (0, 255, 0), -1)
 
                 if old_centerx == float('inf'):

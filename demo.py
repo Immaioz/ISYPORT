@@ -13,16 +13,14 @@ import config
 lock = threading.Lock()
 
 # Load YOLO model
-model = YOLO('models/VisibleModel/weights/best.pt')
-# model = YOLO('yolov8n.pt')
+model = YOLO('models/Model/weights/best.pt')
 
 # Global flag to control threads
 running = True
 
 bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
-
-global info, old_centerx, status, frames, start_time, messages
+global info, old_centerx, status, frames, start_time, messages, risk_zones
 start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
 
 no_det = cv2.imread("utils/nodetect.png")
@@ -35,12 +33,21 @@ info = {
 }
 
 status = {
-    "Camera Stream 1": [[None], [None], None],
-    "Camera Stream 2": [[None], [None], None],
-    "Camera Stream 3": [[None], [None], None],
-    "Camera Stream 4": [[None], [None], None],
+    "Camera Stream 1": [[], [], [], None],
+    "Camera Stream 2": [[], [], [], None],
+    "Camera Stream 3": [[], [], [], None],
+    "Camera Stream 4": [[], [], [], None],
     "Total" : None
 }
+
+
+risk_zones = {
+    "Camera Stream 1": [0,0,0,0,0],
+    "Camera Stream 2": [0,0,0,0,0],
+    "Camera Stream 3": [0,0,0,0,0],
+    "Camera Stream 4": [0,0,0,0,0],
+}
+
 
 frames = {
     "Camera Stream 1": [None, None],
@@ -64,11 +71,62 @@ result = {
 }
 
 
+def zone_index(y_value):
+    if 0 <= y_value <= 1:
+        index = int(y_value / 0.20)
+        return min(index, 4)  
+    else:
+        raise ValueError("Number is not in the range [0, 1]")
+
+def zone():
+    count_VIS = [0, 0, 0, 0, 0] 
+    count_IR = [0, 0, 0, 0, 0]  
+
+    for index in range(5):  
+        for camera_stream in risk_zones:
+            value = risk_zones[camera_stream][index]
+            if value != 0:
+                if "Camera Stream 1" in camera_stream or "Camera Stream 2" in camera_stream:
+                    count_VIS[index] += risk_zones[camera_stream][index]
+                elif "Camera Stream 3" in camera_stream or "Camera Stream 4" in camera_stream:
+                    count_IR[index] += risk_zones[camera_stream][index]
+
+    total = [max(count_VIS, count_IR) for count_VIS, count_IR in zip(count_VIS, count_IR)]
+    return total
+
+
 def risk_factor(frame):
-    bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
-    cond = get_weather(False)
-    if cond in bad_conditions:
-        risk = bad_conditions.index(cond) + 1
+    while running:
+        for camera_stream in risk_zones:
+            risk_zones[camera_stream] = [0, 0, 0, 0, 0]
+        bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
+        risk = 0
+        cond = get_weather(False)
+        #cond = "thunderstorm"
+        if cond in bad_conditions:
+            risk = bad_conditions.index(cond) + 1
+        for camera_stream, value in status.items():
+            if value is not None and len(value) > 2:
+                centery = value[2]
+                if isinstance(centery, list):
+                    for item in centery:
+                        index = zone_index(item)
+                        risk_zones[camera_stream][index] += 1
+        zones = zone()
+        num_boat = 0
+        for _, max_count in enumerate(zones):
+            if max_count >= 2:
+                num_boat = max_count
+        risk_value = num_boat + risk
+        risk_value = np.interp(risk_value, (0, 10), (0, 100))
+        if risk_value < 33.0:
+            color = "green1"
+        elif 33.0 <= risk_value <= 66.0:
+            color = "yellow1"
+        else:
+            color = "red1"
+
+        frame.config(text = risk_value, bg=color, fg= "white", font=("Arial", 22))
 
 def update_time(title):
     current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
@@ -164,7 +222,7 @@ def add_frame(VFrame, IRFrame):
             Vfr = no_det
             Vbbox = None
             IRbbox = None
-        
+
         if flag is True:
             if Vfr is not None:
                 frame = resize_frame(Vbbox, Vfr)
@@ -176,6 +234,8 @@ def add_frame(VFrame, IRFrame):
                 image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
                 IRFrame.configure(image=image)
                 IRFrame.image = image
+
+            
 
 def resize_frame(bbox, frame):
     if bbox is not None:
@@ -200,20 +260,21 @@ def calculate_box_center(corners):
     center_y = (ymin + ymax) / 2
     return center_x, center_y
 
-def determine_movement_direction(x1, y1, x2, y2):
-    print(y1,y2,"new y", "old y\n")
-    delta_x = x2 - x1
-    delta_y = y2 - y1
-    if delta_x > 0:
-        if delta_y > 0:
-            return "approaching"
+def determine_movement_direction(newx, newy, oldx, oldy2):
+    #print("oldy:", y2, "New y:",y1)
+    #! Aggiustare soglie
+    delta_x = newx - oldx
+    delta_y = newy - oldy2
+    if delta_x > 0.1:
+        if delta_y > 0.1:
+            return "approaching" 
         else:
             return "leaving"
     else:
-        if delta_y > 0:
-            return "approaching"
-        else:
+        if delta_y < 0.1:
             return "leaving"
+        else:
+            return "approaching"
 
 
 def save_log(data):
@@ -232,7 +293,7 @@ def detect_objects(frame):
 
     bbox = []
     labels = []
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.9, conf=0.5)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.9, conf=0.75)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -264,29 +325,43 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         for i in range (len(result[camera_name][0])):
                             box = result[camera_name][0][i]
                             label =  result[camera_name][1][i]
+                            box_norm = frame.boxes.xyxyn[i].cpu().numpy()
+                            _, zone_y = calculate_box_center(box_norm)
+                            # index = zone_index(zone_y)
+                            # if (risk_zones[camera_name][index]) < len(result[camera_name][1]):
+                            #     risk_zones[camera_name][index] += 1
                             centerx, centery = calculate_box_center(box)
-                            if status[camera_name][0] == None:
+                            if len(status[camera_name][0]) < (len(result[camera_name][1])):
                                 #! Devo salvare una lista per ogni x e y, utilizzare gli stessi e resettare quando finisco 
-                                status[camera_name][0] = centerx
-                                status[camera_name][1] = centery
-                                status[camera_name][2] = "detected"
+                                status[camera_name][0].append(centerx)
+                                status[camera_name][1].append(centery)
+                                status[camera_name][2].append(zone_y)
+                                status[camera_name][3] = "detected"
                                 status["Total"] = "detected"
                                 # 
                                 # logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
                                 logs[camera_name][1] = label
+                                if not status[camera_name][2]:
+                                    status[camera_name][2].append(zone_y)
+                                else:
+                                    status[camera_name][2][i] = zone_y
                             else:
                                 if (i == 0):
                                     frames[camera_name][0] = frame[0].orig_img.copy()
                                 frames[camera_name][1] = box
-                                oldx = status[camera_name][0]
-                                oldy = status[camera_name][1]
-                                status[camera_name][2] = determine_movement_direction(centerx, centery, oldx, oldy)
-                                status["Total"] = status[camera_name][2]
+                                oldx = status[camera_name][0][i]
+                                oldy = status[camera_name][1][i]
+                                status[camera_name][0][i] = centerx
+                                status[camera_name][1][i] = centery
+                                status[camera_name][2][i] = zone_y
+                                #print(camera_name, "n° ",i, "xdiff: ", oldx - centerx,"ydiff:", oldy - centery)
+                                status[camera_name][3] = determine_movement_direction(centerx, centery, oldx, oldy)
+                                status["Total"] = status[camera_name][3]
                                 if logs[camera_name][2] is False:
                                     logs[camera_name][2] = True
-                                    # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
+                                    # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][3]
                                     # save_log(data)
-                            message = "A " + label + " is " + status[camera_name][2]
+                            message = "A " + label + " is " + status[camera_name][3]
                             if not info[camera_name][1]:
                                 info[camera_name][1] = message
                             else:
@@ -297,34 +372,52 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         box = frame[0].boxes.xyxy[0].cpu().numpy()
                         label = frame[0].names[int(frame[0].boxes.cls[0])]
                         centerx, centery = calculate_box_center(box)
+                        box_norm = frame.boxes.xyxyn[0].cpu().numpy()
+                        _, zone_y = calculate_box_center(box_norm)
+                        # index = zone_index(zone_y)
+                        # risk_zones[camera_name][index] += 1
                         
-                        if status[camera_name][0] == None:
-                            status[camera_name][0] = centerx
-                            status[camera_name][1] = centery
-                            status[camera_name][2] = "detected"
+                        if not status[camera_name][0]:
+                            status[camera_name][0].append(centerx)
+                            status[camera_name][1].append(centery)
+                            status[camera_name][3] = "detected"
                             status["Total"] = "detected"
                             #logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
                             logs[camera_name][1] = label
+                            if not status[camera_name][2]:
+                                status[camera_name][2].append(zone_y)
+                            else:
+                                status[camera_name][2][0] = zone_y
                         else:
                             frames[camera_name][0] = frame[0].orig_img.copy()
                             frames[camera_name][1] = box
-                            oldx = status[camera_name][0]
-                            oldy = status[camera_name][1]
-                            status[camera_name][2] = determine_movement_direction(centerx, centery, oldx, oldy)
-                            status["Total"] = status[camera_name][2]
+                            oldx = status[camera_name][0][0]
+                            oldy = status[camera_name][1][0]
+                            status[camera_name][0][0] = centerx
+                            status[camera_name][1][0] = centery
+                            status[camera_name][2][0] = zone_y
+                            #print(camera_name, "xdiff: ", oldx - centerx,"ydiff:", oldy - centery)
+                            status[camera_name][3] = determine_movement_direction(centerx, centery, oldx, oldy)
+                            status["Total"] = status[camera_name][3]
                             if logs[camera_name][2] is False:
                                 logs[camera_name][2] = True
-                                # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][2]
+                                # data = camera_name + "," + logs[camera_name][1] + "," + logs[camera_name][0] + "," + status[camera_name][3]
                                 # save_log(data)
-                        message = "A " + label + " is " + status[camera_name][2]
+                        message = "A " + label + " is " + status[camera_name][3]
                         info[camera_name][0] =  message
                         frame = frame.plot()
                 else:
                     frames[camera_name] = [None, None]
                     info[camera_name] = [None, None]
-
+                    for i in range(3):
+                        status[camera_name][i] = []
+                        #print(f"reset from {camera_name}")
+                # ! Reset quando non vedo nulla
                 if (all(value is None for value in info.values())):
                     status["Total"] = None
+                    # for camera_stream in status:
+                    #     for i in range(3):
+                    #         status[camera_stream][i] = []
                     for key in logs:
                         logs[key][2] = False
 
@@ -425,12 +518,12 @@ def create_gui(root):
     # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
     # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
     
-    # cameras = {
-    #     "Camera Stream 1": "Video/Multi/cam1.mp4",
-    #     "Camera Stream 2": "Video/Multi/cam2.mp4",
-    #     "Camera Stream 3": "Video/Multi/cam3.mp4",
-    #     "Camera Stream 4": "Video/Multi/cam4.mp4"
-    # }
+    multicameras = {
+        "Camera Stream 1": "Video/Multi/cam1.mp4",
+        "Camera Stream 2": "Video/Multi/cam2.mp4",
+        "Camera Stream 3": "Video/Multi/cam3.mp4",
+        "Camera Stream 4": "Video/Multi/cam4.mp4"
+    }
     cameras = {
         "Camera Stream 1": "Video/SimpleTest/Cam1.mp4",
         "Camera Stream 2": "Video/SimpleTest/Cam2.mp4",
@@ -438,13 +531,14 @@ def create_gui(root):
         "Camera Stream 4": "Video/SimpleTest/Cam4.mp4"
     }
 
-    for camera_name, camera_address in cameras.items():
+    for camera_name, camera_address in multicameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
+    #!Fa laggare-da sistemare
     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
     threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
-    threading.Thread(target=risk_factor, args=(Risk_frame,), daemon=True).start()
+    threading.Thread(target=risk_factor, args=(RiskFrame,), daemon=True).start()
 
 def on_closing():
     global running
