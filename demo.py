@@ -13,10 +13,14 @@ import config
 lock = threading.Lock()
 
 # Load YOLO model
-model = YOLO('models/Model/weights/best.pt')
+model = YOLO('models/VisibleModel/weights/best.pt')
+# model = YOLO('yolov8n.pt')
 
 # Global flag to control threads
 running = True
+
+bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
+
 
 global info, old_centerx, status, frames, start_time, messages
 start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
@@ -31,10 +35,10 @@ info = {
 }
 
 status = {
-    "Camera Stream 1": [None, None, None],
-    "Camera Stream 2": [None, None, None],
-    "Camera Stream 3": [None, None, None],
-    "Camera Stream 4": [None, None, None],
+    "Camera Stream 1": [[None], [None], None],
+    "Camera Stream 2": [[None], [None], None],
+    "Camera Stream 3": [[None], [None], None],
+    "Camera Stream 4": [[None], [None], None],
     "Total" : None
 }
 
@@ -60,6 +64,12 @@ result = {
 }
 
 
+def risk_factor(frame):
+    bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
+    cond = get_weather(False)
+    if cond in bad_conditions:
+        risk = bad_conditions.index(cond) + 1
+
 def update_time(title):
     current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
     name = current_time + ", Augusta:"
@@ -68,7 +78,7 @@ def update_time(title):
 
 def update_weather(l1,l2,r1,r2):
     while running:
-        message = get_weather()
+        message = get_weather(True)
         mex = message.split("\n")        
         l1.config(text=mex[0])
         l2.config(text=mex[1])
@@ -76,7 +86,7 @@ def update_weather(l1,l2,r1,r2):
         r2.config(text=mex[3])
         time.sleep(10)
 
-def get_weather():
+def get_weather(call):
     base_url = "https://api.openweathermap.org/data/2.5/weather?"
     final_url = base_url + "appid=" + config.api_key + "&id=" + config.city_id + "&units=" + config.units
     try:
@@ -97,7 +107,10 @@ def get_weather():
             )
         else:
             print(f"Error: {data['message']}")
-        return message
+        if call:
+            return message
+        else:
+            return weather_description
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -187,12 +200,21 @@ def calculate_box_center(corners):
     center_y = (ymin + ymax) / 2
     return center_x, center_y
 
-def determine_movement_direction(x1, y1, x2):
+def determine_movement_direction(x1, y1, x2, y2):
+    print(y1,y2,"new y", "old y\n")
     delta_x = x2 - x1
+    delta_y = y2 - y1
     if delta_x > 0:
-        return "approaching"
-    elif delta_x < 0:
-        return "leaving"
+        if delta_y > 0:
+            return "approaching"
+        else:
+            return "leaving"
+    else:
+        if delta_y > 0:
+            return "approaching"
+        else:
+            return "leaving"
+
 
 def save_log(data):
     filename = start_time + "_log.csv" 
@@ -244,18 +266,21 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                             label =  result[camera_name][1][i]
                             centerx, centery = calculate_box_center(box)
                             if status[camera_name][0] == None:
+                                #! Devo salvare una lista per ogni x e y, utilizzare gli stessi e resettare quando finisco 
                                 status[camera_name][0] = centerx
                                 status[camera_name][1] = centery
                                 status[camera_name][2] = "detected"
                                 status["Total"] = "detected"
+                                # 
                                 # logs[camera_name][0] = time.strftime("%H:%M:%S", time.gmtime(time.time()))
                                 logs[camera_name][1] = label
                             else:
                                 if (i == 0):
                                     frames[camera_name][0] = frame[0].orig_img.copy()
                                 frames[camera_name][1] = box
-                                old = status[camera_name][0]
-                                status[camera_name][2] = determine_movement_direction(centerx, centery, old)
+                                oldx = status[camera_name][0]
+                                oldy = status[camera_name][1]
+                                status[camera_name][2] = determine_movement_direction(centerx, centery, oldx, oldy)
                                 status["Total"] = status[camera_name][2]
                                 if logs[camera_name][2] is False:
                                     logs[camera_name][2] = True
@@ -283,8 +308,9 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         else:
                             frames[camera_name][0] = frame[0].orig_img.copy()
                             frames[camera_name][1] = box
-                            old = status[camera_name][0]
-                            status[camera_name][2] = determine_movement_direction(centerx, centery, old)
+                            oldx = status[camera_name][0]
+                            oldy = status[camera_name][1]
+                            status[camera_name][2] = determine_movement_direction(centerx, centery, oldx, oldy)
                             status["Total"] = status[camera_name][2]
                             if logs[camera_name][2] is False:
                                 logs[camera_name][2] = True
@@ -399,11 +425,17 @@ def create_gui(root):
     # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
     # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
     
+    # cameras = {
+    #     "Camera Stream 1": "Video/Multi/cam1.mp4",
+    #     "Camera Stream 2": "Video/Multi/cam2.mp4",
+    #     "Camera Stream 3": "Video/Multi/cam3.mp4",
+    #     "Camera Stream 4": "Video/Multi/cam4.mp4"
+    # }
     cameras = {
-        "Camera Stream 1": "Video/test2/Cam1.mp4",
-        "Camera Stream 2": "Video/test2/Cam2.mp4",
-        "Camera Stream 3": "Video/test2/Cam3.mp4",
-        "Camera Stream 4": "Video/test2/Cam4.mp4"
+        "Camera Stream 1": "Video/SimpleTest/Cam1.mp4",
+        "Camera Stream 2": "Video/SimpleTest/Cam2.mp4",
+        "Camera Stream 3": "Video/SimpleTest/Cam3.mp4",
+        "Camera Stream 4": "Video/SimpleTest/Cam4.mp4"
     }
 
     for camera_name, camera_address in cameras.items():
@@ -412,6 +444,7 @@ def create_gui(root):
     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
     threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
+    threading.Thread(target=risk_factor, args=(Risk_frame,), daemon=True).start()
 
 def on_closing():
     global running

@@ -9,3 +9,10 @@
 - [x] Add risk factor (Placeholder)
 - [ ] Use more threads (?)
 - [x] Add multiple boat support WIP
+
+
+
+
+
+
+Dividere y per 100 e vedere se le barche sono nella stessa fascia, se si, rischio alto se vanno vicino
