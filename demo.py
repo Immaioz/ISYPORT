@@ -9,6 +9,7 @@ from ultralytics import YOLO
 import csv
 import os
 import config
+import sys
 
 lock = threading.Lock()
 
@@ -20,9 +21,10 @@ running = True
 
 bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
-global info, flag_mini_frame, status, frames, start_time, messages, risk_zones
+global info, flag_mini_frame, status, frames, start_time, messages, risk_zones, threads
 start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
 flag_mini_frame = False
+threads = []
 
 no_det = cv2.imread("utils/nodetect.png")
 
@@ -143,7 +145,7 @@ def update_weather(l1,l2,r1,r2):
         l2.config(text=mex[1])
         r1.config(text=mex[2])
         r2.config(text=mex[3])
-        time.sleep(10)
+        time.sleep(1)
 
 def get_weather(call):
     base_url = "https://api.openweathermap.org/data/2.5/weather?"
@@ -530,18 +532,24 @@ def create_gui(root):
 
     for camera_name, camera_address in multicameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
-        threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True).start()
-    #!Fa laggare-da sistemare
+        thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True)
+        threads.append(thread)
+    #!Fa laggare-da sistemare 
+    #*Fixato
     # threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
-    threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True).start()
-    threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True).start()
-    threading.Thread(target=risk_factor, args=(RiskFrame,), daemon=True).start()
+    threads.append(threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True))
+    threads.append(threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True))
+    threads.append(threading.Thread(target=risk_factor, args=(RiskFrame,), daemon=True))
+    for thread in threads:
+        thread.start()
+
 
 def on_closing():
     global running
     running = False  # Set the global flag to stop threads
-    time.sleep(1)
+    time.sleep(2)
     root.destroy()   # Destroy the main GUI window
+    sys.exit(0)
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -559,3 +567,4 @@ if __name__ == "__main__":
     for thread in threading.enumerate():
         if thread != threading.current_thread():
             thread.join()
+    
