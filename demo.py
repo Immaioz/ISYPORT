@@ -503,6 +503,13 @@ def create_gui(root):
     frame3.pack(side="top", padx=2, pady=2)
     RiskFrame = tk.Label(frame3)
     RiskFrame.pack(anchor="s")
+    
+    Risk_reason_frame = tk.LabelFrame(root, text="Reason:", width=151, height=72, labelanchor="n")
+    Risk_reason_frame.pack_propagate(0)
+    frame4 = tk.Frame(Risk_reason_frame)
+    frame4.pack(side="top", padx=2, pady=2)
+    RiskReason = tk.Label(frame4)
+    RiskReason.pack(anchor="s")
 
     quadrant_1.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
     quadrant_2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
@@ -514,6 +521,7 @@ def create_gui(root):
     visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
     IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
     Risk_frame.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky="")
+    Risk_reason_frame.grid(row=2, column=3, columnspan=2, padx=5, pady=5, sticky="")
     # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
     # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
     
@@ -534,7 +542,6 @@ def create_gui(root):
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True)
         threads.append(thread)
-    #!Fa laggare-da sistemare 
     #*Fixato
     # threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threads.append(threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True))
