@@ -493,7 +493,7 @@ def create_gui(root):
 
 
     # Event log frame
-    event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=300,  labelanchor="n", font=font.Font(weight="bold"))
+    event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=200,  labelanchor="n", font=font.Font(weight="bold"))
     event_log_frame.pack_propagate(0)
     columns = tk.Frame(event_log_frame)
     columns.pack(side="top", padx=5, pady=5)
@@ -515,28 +515,30 @@ def create_gui(root):
     right_label2 = tk.Label(right_column)
     right_label2.pack(anchor="w")
 
-    root.grid_rowconfigure(0, weight=3)
-    root.grid_rowconfigure(1, weight=3)
-    root.grid_columnconfigure(0, weight=3)
+    root.grid_rowconfigure(0, weight=4)
+    root.grid_rowconfigure(1, weight=4)
+    root.grid_columnconfigure(0, weight=5)
     root.grid_columnconfigure(1, weight=3)
     root.grid_columnconfigure(2, weight=1)
     root.grid_rowconfigure(2, weight=1)
+    
     
     # Visibile and IR Cam frames
     global VFrame, IRFrame
     visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
     visible_frame.pack_propagate(0)
     frame = tk.Frame(visible_frame)
-    frame.pack(side="top", padx=2, pady=2)
+    frame.pack(side="top", padx=5, pady=5)
     VFrame = tk.Label(frame)
-    VFrame.pack(anchor="e")
+    VFrame.pack(anchor="n")
 
     IR_frame = tk.LabelFrame(root, text="IR Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
     IR_frame.pack_propagate(0)
     frame2 = tk.Frame(IR_frame)
-    frame2.pack(side="top", padx=2, pady=2)
+    frame2.pack(side="top", padx=5, pady=5)
     IRFrame = tk.Label(frame2)
-    IRFrame.pack(anchor="e")
+    IRFrame.pack(anchor="n")
+
 
     #Risk indicator
     Risk_frame = tk.LabelFrame(root, text="Risk indicator:", width=144, height=72, labelanchor="n", font=font.Font(weight="bold"))
@@ -557,13 +559,14 @@ def create_gui(root):
     q2_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
     q3_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     q4_frame.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-    event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
+    event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=1, padx=0, pady=5, sticky="n")
     # event_log_frame_2.grid(row=0, column=5, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
-    additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="w")
-    visible_frame.grid(row=1, column=3, padx=50, pady=0, sticky="")
-    IR_frame.grid(row=1, column=2, padx=0, pady=0, sticky="")
-    Risk_frame.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky="")
-    Risk_reason_frame.grid(row=2, column=3, columnspan=2, padx=5, pady=5, sticky="")
+    additional_info_frame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+    visible_frame.grid(row=1, column=2,rowspan=2, columnspan=1, padx=0, pady=5, sticky="ne")
+    IR_frame.grid(row=1, column=2, rowspan=2 ,padx=0, pady=5, sticky="nw")
+
+    Risk_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="w")
+    Risk_reason_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="e")
     # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
     # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
     
