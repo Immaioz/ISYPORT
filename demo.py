@@ -10,6 +10,7 @@ import csv
 import os
 import config
 import sys
+from tkinter import font
 
 lock = threading.Lock()
 
@@ -98,7 +99,7 @@ def zone():
     return total
 
 
-def risk_factor(frame):
+def risk_factor(frame,rframe):
     while running:
         for camera_stream in risk_zones:
             risk_zones[camera_stream] = [0, 0, 0, 0, 0]
@@ -128,11 +129,17 @@ def risk_factor(frame):
             color = "yellow1"
         else:
             color = "red1"
-
-        frame.config(text = risk_value, bg=color, fg= "white", font=("Arial", 22))
+        if risk_value > 30:
+            risk_value = float(30)
+        if risk_value != 0: 
+            rframe.config(text ="Multiple boats", font=("Arial", 15))
+        else:
+            rframe.config(text ="")
+        frame.config(text = risk_value, bg=color, fg= "black", font=("Arial", 22))
 
 def update_time(title):
-    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
+    #current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
+    current_time = "Tuesday, 17/09/2023, 10:23"
     name = current_time + ", Augusta:"
     title.config(text=name)
     root.after(60000,update_time,title)
@@ -148,6 +155,7 @@ def update_weather(l1,l2,r1,r2):
         time.sleep(1)
 
 def get_weather(call):
+    # https://history.openweathermap.org/data/2.5/history/city?lat={lat}&lon={lon}&type=hour&start={start}&end={end}&appid={API key}
     base_url = "https://api.openweathermap.org/data/2.5/weather?"
     final_url = base_url + "appid=" + config.api_key + "&id=" + config.city_id + "&units=" + config.units
     try:
@@ -162,7 +170,7 @@ def get_weather(call):
             
             message = (
                 f"Weather: {weather_description}\n"
-                f"Temperature: {temperature}°C\n"
+                f"Temperature: {temperature+2}°C\n"
                 f"Humidity: {humidity}%\n"
                 f"Wind Speed: {wind_speed} m/s\n"
             )
@@ -268,16 +276,16 @@ def determine_movement_direction(newx, newy, oldx, oldy2):
     #! Aggiustare soglie
     delta_x = newx - oldx
     delta_y = newy - oldy2
-    if delta_x > 0.1:
-        if delta_y > 0.1:
+    if delta_x < 0:
+        # if delta_y > 0.1:
             return "approaching" 
-        else:
-            return "leaving"
+        # else:
+        #     return "leaving"
     else:
-        if delta_y < 0.1:
+        # if delta_y < 0.1:
             return "leaving"
-        else:
-            return "approaching"
+        # else:
+        #     return "approaching"
 
 
 def save_log(data):
@@ -296,7 +304,7 @@ def detect_objects(frame):
 
     bbox = []
     labels = []
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.9, conf=0.75)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False, classes=1, iou=0.95)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -440,18 +448,52 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 
 
 def create_gui(root):
-    # Main area divided into 4 quadrants
-    quadrant_1 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_1.pack_propagate(0)
-    quadrant_2 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_2.pack_propagate(0)
-    quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_3.pack_propagate(0)
-    quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    quadrant_4.pack_propagate(0)
+
+    # # Main area divided into 4 quadrants
+    q1_frame = tk.LabelFrame(root, text="Camera Stream 1:", width=3,height=3, labelanchor="n", font=font.Font(weight="bold"))
+    q1_frame.pack_propagate(0)
+    c1 = tk.Frame(q1_frame)
+    c1.pack(side="top", padx=10, pady=10)
+    quadrant_1 = tk.Label(c1, bg="grey")
+    quadrant_1.pack(anchor="center")
+    
+    q2_frame = tk.LabelFrame(root, text="Camera Stream 2:", width=3,height=3, labelanchor="n", font=font.Font(weight="bold"))
+    q2_frame.pack_propagate(0)
+    c2 = tk.Frame(q2_frame)
+    c2.pack(side="top", padx=10, pady=10)
+    quadrant_2 = tk.Label(c2, bg="grey")
+    quadrant_2.pack(anchor="center")
+
+    q3_frame = tk.LabelFrame(root, text="Camera Stream 3:", width=3,height=3, labelanchor="n", font=font.Font(weight="bold"))
+    q3_frame.pack_propagate(0)
+    c3 = tk.Frame(q3_frame)
+    c3.pack(side="top", padx=10, pady=10)
+    quadrant_3 = tk.Label(c3, bg="grey")
+    quadrant_3.pack(anchor="center")
+
+
+    q4_frame = tk.LabelFrame(root, text="Camera Stream 4:", width=3,height=3, labelanchor="n", font=font.Font(weight="bold"))
+    q4_frame.pack_propagate(0)
+    c4 = tk.Frame(q4_frame)
+    c4.pack(side="top", padx=10, pady=10)
+    quadrant_4 = tk.Label(c4, bg="grey")
+    quadrant_4.pack(anchor="center")
+
+
+    # quadrant_1 = tk.Label(root, text="Cam 1",bg="grey", width=60, height=30)  # Larger size for higher resolution
+    # quadrant_1.pack_propagate(0)
+    # quadrant_2 = tk.Label(root, text="Cam 2:",bg="grey", width=60, height=30)  # Larger size for higher resolution
+    # quadrant_2.pack_propagate(0)
+    # quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    # quadrant_3.pack_propagate(0)
+    # quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
+    # quadrant_4.pack_propagate(0)
+
+
+
 
     # Event log frame
-    event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=300,  labelanchor="n")
+    event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=300,  labelanchor="n", font=font.Font(weight="bold"))
     event_log_frame.pack_propagate(0)
     columns = tk.Frame(event_log_frame)
     columns.pack(side="top", padx=5, pady=5)
@@ -459,7 +501,7 @@ def create_gui(root):
     elog.pack(anchor="ne")
 
     # Additional information in two columns
-    additional_info_frame = tk.LabelFrame(root, text="Weather in Augusta:", width=60, labelanchor="n")
+    additional_info_frame = tk.LabelFrame(root, text="Weather in Augusta:", width=60, labelanchor="n", font=font.Font(weight="bold"))
     left_column = tk.Frame(additional_info_frame)
     left_column.pack(side="left", padx=5, pady=5)
     right_column = tk.Frame(additional_info_frame)
@@ -482,14 +524,14 @@ def create_gui(root):
     
     # Visibile and IR Cam frames
     global VFrame, IRFrame
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=155, height=80, labelanchor="n")
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
     visible_frame.pack_propagate(0)
     frame = tk.Frame(visible_frame)
     frame.pack(side="top", padx=2, pady=2)
     VFrame = tk.Label(frame)
     VFrame.pack(anchor="e")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=155, height=80, labelanchor="n")
+    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
     IR_frame.pack_propagate(0)
     frame2 = tk.Frame(IR_frame)
     frame2.pack(side="top", padx=2, pady=2)
@@ -497,24 +539,24 @@ def create_gui(root):
     IRFrame.pack(anchor="e")
 
     #Risk indicator
-    Risk_frame = tk.LabelFrame(root, text="Risk indicator:", width=151, height=72, labelanchor="n")
+    Risk_frame = tk.LabelFrame(root, text="Risk indicator:", width=144, height=72, labelanchor="n", font=font.Font(weight="bold"))
     Risk_frame.pack_propagate(0)
     frame3 = tk.Frame(Risk_frame)
     frame3.pack(side="top", padx=2, pady=2)
-    RiskFrame = tk.Label(frame3)
-    RiskFrame.pack(anchor="s")
+    RiskFrame = tk.Label(frame3, anchor="center")
+    RiskFrame.pack()
     
-    Risk_reason_frame = tk.LabelFrame(root, text="Reason:", width=151, height=72, labelanchor="n")
+    Risk_reason_frame = tk.LabelFrame(root, text="Reason:", width=144, height=72, labelanchor="n", font=font.Font(weight="bold"))
     Risk_reason_frame.pack_propagate(0)
     frame4 = tk.Frame(Risk_reason_frame)
     frame4.pack(side="top", padx=2, pady=2)
-    RiskReason = tk.Label(frame4)
-    RiskReason.pack(anchor="s")
+    RiskReason = tk.Label(frame4, anchor="center")
+    RiskReason.pack()
 
-    quadrant_1.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-    quadrant_2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
-    quadrant_3.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
-    quadrant_4.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+    q1_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+    q2_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+    q3_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+    q4_frame.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     # event_log_frame_2.grid(row=0, column=5, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     additional_info_frame.grid(row=2, column=0, columnspan=4, padx=20, pady=0, sticky="w")
@@ -538,6 +580,22 @@ def create_gui(root):
         "Camera Stream 4": "Video/SimpleTest/Cam4.mp4"
     }
 
+
+
+    notturno = {
+        "Camera Stream 1": "Video/Notturno/Notturno2_Cam1.mp4",
+        "Camera Stream 2": "Video/Notturno/Notturno2_Cam2.mp4",
+        "Camera Stream 3": "Video/Notturno/Notturno2_Cam3.mp4",
+        "Camera Stream 4": "Video/Notturno/Notturno2_Cam4.mp4"
+    }
+
+    mare_forte = {
+        "Camera Stream 1": "Video/15_09_2023 00_50_43/Cam1.mkv",
+        "Camera Stream 2": "Video/15_09_2023 00_50_43/Cam2.mkv",
+        "Camera Stream 3": "Video/15_09_2023 00_50_43/Cam3.mkv",
+        "Camera Stream 4": "Video/15_09_2023 00_50_43/Cam4.mkv"
+    }
+
     for camera_name, camera_address in multicameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True)
@@ -546,7 +604,7 @@ def create_gui(root):
     # threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threads.append(threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True))
     threads.append(threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True))
-    threads.append(threading.Thread(target=risk_factor, args=(RiskFrame,), daemon=True))
+    threads.append(threading.Thread(target=risk_factor, args=(RiskFrame,RiskReason), daemon=True))
     for thread in threads:
         thread.start()
 
