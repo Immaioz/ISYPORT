@@ -23,6 +23,12 @@ running = True
 bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
 global info, flag_mini_frame, status, frames, start_time, messages, risk_zones, threads
+
+
+global multiboat
+
+multiboat = False
+
 start_time = time.strftime("%H_%M_%S", time.gmtime(time.time()))
 flag_mini_frame = False
 threads = []
@@ -54,10 +60,10 @@ risk_zones = {
 
 
 frames = {
-    "Camera Stream 1": [None, None],
-    "Camera Stream 2": [None, None],
-    "Camera Stream 3": [None, None],
-    "Camera Stream 4": [None, None]
+    "Camera Stream 1": [None, False],
+    "Camera Stream 2": [None, False],
+    "Camera Stream 3": [None, False],
+    "Camera Stream 4": [None, False]
 }
 
 logs = {
@@ -105,8 +111,8 @@ def risk_factor(frame,rframe):
             risk_zones[camera_stream] = [0, 0, 0, 0, 0]
         bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
         risk = 0
+        risk_value = 0
         cond = get_weather(False)
-        #cond = "thunderstorm"
         if cond in bad_conditions:
             risk = bad_conditions.index(cond) + 1
         for camera_stream, value in status.items():
@@ -129,17 +135,10 @@ def risk_factor(frame,rframe):
             color = "yellow1"
         else:
             color = "red1"
-        if risk_value > 30:
-            risk_value = float(30)
-        if risk_value != 0: 
-            rframe.config(text ="Multiple boats", font=("Arial", 15))
-        else:
-            rframe.config(text ="")
         frame.config(text = risk_value, bg=color, fg= "black", font=("Arial", 22))
 
 def update_time(title):
-    #current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
-    current_time = "Tuesday, 17/09/2023, 10:23"
+    current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
     name = current_time + ", Augusta:"
     title.config(text=name)
     root.after(60000,update_time,title)
@@ -155,7 +154,6 @@ def update_weather(l1,l2,r1,r2):
         time.sleep(1)
 
 def get_weather(call):
-    # https://history.openweathermap.org/data/2.5/history/city?lat={lat}&lon={lon}&type=hour&start={start}&end={end}&appid={API key}
     base_url = "https://api.openweathermap.org/data/2.5/weather?"
     final_url = base_url + "appid=" + config.api_key + "&id=" + config.city_id + "&units=" + config.units
     try:
@@ -170,7 +168,7 @@ def get_weather(call):
             
             message = (
                 f"Weather: {weather_description}\n"
-                f"Temperature: {temperature+2}°C\n"
+                f"Temperature: {temperature}°C\n"
                 f"Humidity: {humidity}%\n"
                 f"Wind Speed: {wind_speed} m/s\n"
             )
@@ -182,8 +180,6 @@ def get_weather(call):
             return weather_description
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
 
 def add_event(event_log, messages):
     text = "" 
@@ -233,14 +229,18 @@ def add_frame(VFrame, IRFrame):
         Vbbox = None
         IRbbox = None
 
+
+
     if flag is True:
         if Vfr is not None:
-            frame = resize_frame(Vbbox, Vfr)
+            frame = Vfr
+            #frame = resize_frame(Vbbox, Vfr)
             image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
             VFrame.configure(image=image)
             VFrame.image = image
         if IRfr is not None:
-            frame = resize_frame(IRbbox, IRfr)
+            frame = IRfr
+            #frame = resize_frame(IRbbox, IRfr)
             image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
             IRFrame.configure(image=image)
             IRFrame.image = image
@@ -253,12 +253,12 @@ def resize_frame(bbox, frame):
         bbox = bbox.astype(int)
         x1,y1,x2,y2 = np.reshape(bbox, (4,))
         frame = frame[y1:y2, x1:x2]
-    target_width, target_height = 151, 72  # Adjust as needed
-    aspect_ratio = frame.shape[1] / frame.shape[0]
-    if aspect_ratio > target_width / target_height:
-        target_height = int(target_width / aspect_ratio)
-    else:
-        target_width = int(target_height * aspect_ratio)
+    target_width, target_height = 200, 80  # Adjust as needed
+    # aspect_ratio = frame.shape[1] / frame.shape[0]
+    # if aspect_ratio > target_width / target_height:
+    #     target_height = int(target_width / aspect_ratio)
+    # else:
+    #     target_width = int(target_height * aspect_ratio)
     resized_frame = cv2.resize(frame, (target_width, target_height))
     return resized_frame
 
@@ -304,7 +304,7 @@ def detect_objects(frame):
 
     bbox = []
     labels = []
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, classes=1, iou=0.95)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False, classes=3, iou=0.5,conf=0.2,max_det=1)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -333,6 +333,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                 if flag:
                     info[camera_name][1] = ""
                     if (len(result[camera_name][1]) > 1):
+                        multiboat = True
                         for i in range (len(result[camera_name][0])):
                             box = result[camera_name][0][i]
                             label =  result[camera_name][1][i]
@@ -355,7 +356,40 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                     status[camera_name][2][i] = zone_y
                             else:
                                 if (i == 0):
-                                    frames[camera_name][0] = frame[0].orig_img
+                                    frames[camera_name][0] = resize_frame(box, frame[0].orig_img)
+                                    #frames[camera_name][0] = frame[0].orig_img
+                                # else:
+                                #     if frames[camera_name][0] is not None:
+                                #         old_img = frames[camera_name][0]
+                                #         new_img = resize_frame(box, frame[0].orig_img)
+                                #         max_height = max(old_img.shape[0], new_img.shape[0])
+                                #         max_width = max(old_img.shape[1], new_img.shape[1])
+                                #         # Calculate padding for img1
+                                #         top_pad_img1 = (max_height - old_img.shape[0]) // 2
+                                #         left_pad_img1 = (max_width - old_img.shape[1]) // 2
+
+                                #         # Calculate padding for img2
+                                #         top_pad_img2 = (max_height - new_img.shape[0]) // 2
+                                #         left_pad_img2 = (max_width - new_img.shape[1]) // 2
+
+                                #         # Create padded images
+                                #         img1 = cv2.copyMakeBorder(src=old_img,
+                                #                                 top=0,
+                                #                                 bottom=max_height-old_img.shape[0],
+                                #                                 left=0,
+                                #                                 right=max_width-old_img.shape[1],
+                                #                                 borderType=cv2.BORDER_CONSTANT,
+                                #                                 value=[255, 255, 255])
+
+                                #         img2 = cv2.copyMakeBorder(src=new_img,
+                                #                                 top=0,
+                                #                                 bottom=max_height-new_img.shape[0],
+                                #                                 left=0,
+                                #                                 right=max_width-new_img.shape[1],
+                                #                                 borderType=cv2.BORDER_CONSTANT,
+                                #                                 value=[255, 255, 255])
+                                #         img_add_v = cv2.vconcat([img1,img2]) 
+                                #         frames[camera_name][0] = img_add_v
                                 frames[camera_name][1] = box
                                 oldx = status[camera_name][0][i]
                                 oldy = status[camera_name][1][i]
@@ -377,6 +411,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                             info[camera_name][0] = info[camera_name][1]
                         frame = frame.plot()
                     else:
+                        # multiboat = False
                         box = frame[0].boxes.xyxy[0].cpu().numpy()
                         label = frame[0].names[int(frame[0].boxes.cls[0])]
                         centerx, centery = calculate_box_center(box)
@@ -394,7 +429,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                             else:
                                 status[camera_name][2][0] = zone_y
                         else:
-                            frames[camera_name][0] = frame[0].orig_img
+                            frames[camera_name][0] = resize_frame(box, frame[0].orig_img)
                             frames[camera_name][1] = box
                             oldx = status[camera_name][0][0]
                             oldy = status[camera_name][1][0]
@@ -413,8 +448,8 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                         frame = frame.plot()
                     threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
                 else:
-
-                    frames[camera_name] = [None, None]
+                    frames[camera_name][0] = None
+                    frames[camera_name][1] = None
                     info[camera_name] = [None, None]
                     for i in range(3):
                         status[camera_name][i] = []
@@ -479,19 +514,6 @@ def create_gui(root):
     quadrant_4 = tk.Label(c4, bg="grey")
     quadrant_4.pack(anchor="center")
 
-
-    # quadrant_1 = tk.Label(root, text="Cam 1",bg="grey", width=60, height=30)  # Larger size for higher resolution
-    # quadrant_1.pack_propagate(0)
-    # quadrant_2 = tk.Label(root, text="Cam 2:",bg="grey", width=60, height=30)  # Larger size for higher resolution
-    # quadrant_2.pack_propagate(0)
-    # quadrant_3 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    # quadrant_3.pack_propagate(0)
-    # quadrant_4 = tk.Label(root, bg="grey", width=60, height=30)  # Larger size for higher resolution
-    # quadrant_4.pack_propagate(0)
-
-
-
-
     # Event log frame
     event_log_frame = tk.LabelFrame(root, text="Event Log:", width=400, height=200,  labelanchor="n", font=font.Font(weight="bold"))
     event_log_frame.pack_propagate(0)
@@ -525,19 +547,19 @@ def create_gui(root):
     
     # Visibile and IR Cam frames
     global VFrame, IRFrame
-    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
+    visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=225, height=225, labelanchor="n", font=font.Font(weight="bold"))
     visible_frame.pack_propagate(0)
     frame = tk.Frame(visible_frame)
     frame.pack(side="top", padx=5, pady=5)
     VFrame = tk.Label(frame)
-    VFrame.pack(anchor="n")
+    VFrame.pack(anchor="center")
 
-    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=155, height=80, labelanchor="n", font=font.Font(weight="bold"))
+    IR_frame = tk.LabelFrame(root, text="IR Cam:", width=225, height=225, labelanchor="n", font=font.Font(weight="bold"))
     IR_frame.pack_propagate(0)
     frame2 = tk.Frame(IR_frame)
     frame2.pack(side="top", padx=5, pady=5)
     IRFrame = tk.Label(frame2)
-    IRFrame.pack(anchor="n")
+    IRFrame.pack(anchor="center")
 
 
     #Risk indicator
@@ -562,8 +584,8 @@ def create_gui(root):
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=1, padx=0, pady=5, sticky="n")
     # event_log_frame_2.grid(row=0, column=5, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     additional_info_frame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="w")
-    visible_frame.grid(row=1, column=2,rowspan=2, columnspan=1, padx=0, pady=5, sticky="ne")
-    IR_frame.grid(row=1, column=2, rowspan=2 ,padx=0, pady=5, sticky="nw")
+    visible_frame.grid(row=1, column=2,rowspan=2, columnspan=1, padx=0, pady=5, sticky="nw")
+    IR_frame.grid(row=1, column=2, rowspan=2 ,padx=0, pady=5, sticky="ne")
 
     Risk_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="w")
     Risk_reason_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="e")
@@ -583,23 +605,21 @@ def create_gui(root):
         "Camera Stream 4": "Video/SimpleTest/Cam4.mp4"
     }
 
-
+    mareforte = {
+        "Camera Stream 1": "Video/05_09_2023_09_34_29/Cam1.mkv",
+        "Camera Stream 2": "Video/05_09_2023_09_34_29/Cam2.mkv",
+        "Camera Stream 3": "Video/05_09_2023_09_34_29/Cam3.mkv",
+        "Camera Stream 4": "Video/05_09_2023_09_34_29/Cam4.mkv"
+    }
 
     notturno = {
-        "Camera Stream 1": "Video/Notturno/Notturno2_Cam1.mp4",
-        "Camera Stream 2": "Video/Notturno/Notturno2_Cam2.mp4",
-        "Camera Stream 3": "Video/Notturno/Notturno2_Cam3.mp4",
-        "Camera Stream 4": "Video/Notturno/Notturno2_Cam4.mp4"
+        "Camera Stream 1": "Video/15_09_2023 00_50_43/ir/Cam1.mp4",
+        "Camera Stream 2": "Video/15_09_2023 00_50_43/ir/Cam2.mp4",
+        "Camera Stream 3": "Video/15_09_2023 00_50_43/old/Cam3.mkv",
+        "Camera Stream 4": "Video/15_09_2023 00_50_43/old/Cam4.mkv"
     }
 
-    mare_forte = {
-        "Camera Stream 1": "Video/15_09_2023 00_50_43/Cam1.mkv",
-        "Camera Stream 2": "Video/15_09_2023 00_50_43/Cam2.mkv",
-        "Camera Stream 3": "Video/15_09_2023 00_50_43/Cam3.mkv",
-        "Camera Stream 4": "Video/15_09_2023 00_50_43/Cam4.mkv"
-    }
-
-    for camera_name, camera_address in multicameras.items():
+    for camera_name, camera_address in mareforte.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True)
         threads.append(thread)
