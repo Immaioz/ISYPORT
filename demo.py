@@ -24,7 +24,6 @@ bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
 global info, flag_mini_frame, status, frames, start_time, messages, risk_zones, threads
 
-
 global multiboat
 
 multiboat = False
@@ -230,18 +229,14 @@ def add_frame(VFrame, IRFrame):
         Vbbox = None
         IRbbox = None
 
-
-
     if flag is True:
         if Vfr is not None:
             frame = Vfr
-            #frame = resize_frame(Vbbox, Vfr)
             image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
             VFrame.configure(image=image)
             VFrame.image = image
         if IRfr is not None:
             frame = IRfr
-            #frame = resize_frame(IRbbox, IRfr)
             image = tk.PhotoImage(data=cv2.imencode(".ppm", frame)[1].tobytes())
             IRFrame.configure(image=image)
             IRFrame.image = image
@@ -254,7 +249,7 @@ def resize_frame(bbox, frame):
         bbox = bbox.astype(int)
         x1,y1,x2,y2 = np.reshape(bbox, (4,))
         frame = frame[y1:y2, x1:x2]
-    target_width, target_height = 200, 80  # Adjust as needed
+    target_width, target_height = 200, 80 
     # aspect_ratio = frame.shape[1] / frame.shape[0]
     # if aspect_ratio > target_width / target_height:
     #     target_height = int(target_width / aspect_ratio)
@@ -581,15 +576,13 @@ def create_gui(root):
     q3_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     q4_frame.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     event_log_frame.grid(row=0, column=2, rowspan=2, columnspan=1, padx=0, pady=5, sticky="n")
-    # event_log_frame_2.grid(row=0, column=5, rowspan=2, columnspan=4, padx=0, pady=5, sticky="n")
     additional_info_frame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="w")
     visible_frame.grid(row=1, column=2,rowspan=2, columnspan=1, padx=0, pady=5, sticky="nw")
     IR_frame.grid(row=1, column=2, rowspan=2 ,padx=0, pady=5, sticky="ne")
 
     Risk_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="w")
     Risk_reason_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="e")
-    # visible_frame.grid(row=2, column=0,columnspan=1, padx=5, pady=5, sticky="")
-    # IR_frame.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky="")
+
     
     multicameras = {
         "Camera Stream 1": "Video/Multi/cam1.mp4",
@@ -598,10 +591,10 @@ def create_gui(root):
         "Camera Stream 4": "Video/Multi/cam4.mp4"
     }
     cameras = {
-        "Camera Stream 1": "Video/SimpleTest/Cam1.mp4",
-        "Camera Stream 2": "Video/SimpleTest/Cam2.mp4",
-        "Camera Stream 3": "Video/SimpleTest/Cam3.mp4",
-        "Camera Stream 4": "Video/SimpleTest/Cam4.mp4"
+        "Camera Stream 1": "rtsp://192.168.71.11:554/stream1",
+        "Camera Stream 2": "rtsp://192.168.71.12:554/stream1",
+        "Camera Stream 3": "rtsp://admin:Admin2022%23@192.168.71.14:554/ch0",
+        "Camera Stream 4": "rtsp://admin:Admin2022%23@192.168.71.13:554/ch0"
     }
 
     mareforte = {
@@ -618,12 +611,10 @@ def create_gui(root):
         "Camera Stream 4": "Video/15_09_2023 00_50_43/old/Cam4.mkv"
     }
 
-    for camera_name, camera_address in mareforte.items():
+    for camera_name, camera_address in cameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, elog, camera_name), daemon=True)
         threads.append(thread)
-    #*Fixato
-    # threading.Thread(target=add_frame, args=(VFrame,IRFrame), daemon=True).start()
     threads.append(threading.Thread(target=update_weather, args=(left_label1, left_label2, right_label1, right_label2), daemon=True))
     threads.append(threading.Thread(target=update_time, args=(additional_info_frame,), daemon=True))
     threads.append(threading.Thread(target=risk_factor, args=(RiskFrame,RiskReason), daemon=True))

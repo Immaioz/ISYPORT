@@ -8,6 +8,21 @@ Lastly a risk value is displayed along with the reason for that risk value for t
 
 
 
+## Installation
+
+The script requires pip package ultralytics to work
+
+```bash
+pip install ultralytics
+```
+
+
+
+
+
+
+
+
 
 <!-- ### TODO
 - [x] Solve exception "Too early to create image: no default root window" on row 274  ()
