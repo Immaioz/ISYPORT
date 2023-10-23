@@ -11,14 +11,11 @@ Demo.zip
 test1.zip
 demo.mkv
 yolov8n.pt
-multistream.py
 mare_forte.mkv
 notturno.mkv
 multi.mkv
 risk.py
 config.py 
-demo_vanilla.py 
-demo_YOLO.py
 build/demo/Analysis-00.toc
 build/demo/base_library.zip
 build/demo/demo.pkg
@@ -36,5 +33,6 @@ build/demo/localpycs/pyimod03_ctypes.pyc
 build/demo/localpycs/struct.pyc
 dist/demo
 demo.spec
+multistream.py
 demo_YOLO.py
 demo_vanilla.py
