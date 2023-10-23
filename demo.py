@@ -185,6 +185,7 @@ def add_event(event_log, messages):
     text = "" 
     for key, value in messages.items():
         for i in range (int(len(value)/2)):
+
             if value[0] is None:
                 text = text + key + " : No detection " + "\n"
             else:
@@ -272,20 +273,18 @@ def calculate_box_center(corners):
     return center_x, center_y
 
 def determine_movement_direction(newx, newy, oldx, oldy2):
-    #print("oldy:", y2, "New y:",y1)
-    #! Aggiustare soglie
     delta_x = newx - oldx
     delta_y = newy - oldy2
     if delta_x < 0:
-        # if delta_y > 0.1:
+        if delta_y > 0:
             return "approaching" 
-        # else:
-        #     return "leaving"
-    else:
-        # if delta_y < 0.1:
+        else:
             return "leaving"
-        # else:
-        #     return "approaching"
+    else:
+        if delta_y < 0:
+            return "leaving"
+        else:
+            return "approaching"
 
 
 def save_log(data):
@@ -304,7 +303,7 @@ def detect_objects(frame):
 
     bbox = []
     labels = []
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, classes=3, iou=0.5,conf=0.2,max_det=1)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -537,14 +536,6 @@ def create_gui(root):
     right_label2 = tk.Label(right_column)
     right_label2.pack(anchor="w")
 
-    root.grid_rowconfigure(0, weight=4)
-    root.grid_rowconfigure(1, weight=4)
-    root.grid_columnconfigure(0, weight=5)
-    root.grid_columnconfigure(1, weight=3)
-    root.grid_columnconfigure(2, weight=1)
-    root.grid_rowconfigure(2, weight=1)
-    
-    
     # Visibile and IR Cam frames
     global VFrame, IRFrame
     visible_frame = tk.LabelFrame(root, text="Visibile Cam:", width=225, height=225, labelanchor="n", font=font.Font(weight="bold"))
@@ -576,6 +567,14 @@ def create_gui(root):
     frame4.pack(side="top", padx=2, pady=2)
     RiskReason = tk.Label(frame4, anchor="center")
     RiskReason.pack()
+
+
+    root.grid_rowconfigure(0, weight=4)
+    root.grid_rowconfigure(1, weight=4)
+    root.grid_columnconfigure(0, weight=5)
+    root.grid_columnconfigure(1, weight=3)
+    root.grid_columnconfigure(2, weight=1)
+    root.grid_rowconfigure(2, weight=1)
 
     q1_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
     q2_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
