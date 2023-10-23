@@ -4,7 +4,7 @@ This repo contains the scripts for the GUI of the video monitoring and classific
 The interface contains the stream from each camera along with a log where boat types and their direction of movement within the port are displayed. Also two section displaying the dectected boats are displayed and information about time and weather conditions.
 Lastly a risk value is displayed along with the reason for that risk value for the actual scenario.
 
-![Example](Demo/demo_Ok/notturno_example.png?raw=true "Example")
+![Example](utils/notturno_example.png?raw=true "Example")
 
 
 
