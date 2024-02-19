@@ -36,3 +36,7 @@ demo.spec
 multistream.py
 demo_YOLO.py
 demo_vanilla.py
+testbg.py
+loading.py
+demo_porto.py
+demo_old.py
