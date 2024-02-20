@@ -18,7 +18,6 @@ from ToolTip import ToolTip
 
 lock = threading.Lock()
 
-# Load YOLO model
 modelVIS = YOLO('models/VISModel.pt')
 modelIR = YOLO('models/IRModel.pt')
 
@@ -30,7 +29,6 @@ bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
 global threads, event_running, frame_running
 
-# Global flag to control threads
 running = True
 event_running = False
 frame_running = False
@@ -68,7 +66,6 @@ def search_nearest(target,c_name):
         return found_pos, True
     else:
         return i, False
-
 
 def update_scroll_region_vis():
     scrollbarVIS.config(scrollregion=scrollbarVIS.bbox("all"))
@@ -127,13 +124,23 @@ def risk_factor(frame,rframe, gradient, w):
         bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
         risk = 0
         risk_value = 0
-        cond = get_weather(False)
+        cond, wind = get_weather(False)
+        
         if cond in bad_conditions:
             risk = bad_conditions.index(cond) + 1
-        num_boat = zone()
-        risk_value = num_boat + risk
-        risk_value = np.interp(risk_value, (0, 10), (0, 100))
         
+        if wind > 7.0:
+            temp = wind - 7.0
+            temp = (temp//3.0) + 1
+        else:
+            temp = 0
+
+        risk = risk + temp # max 13
+
+        num_boat = zone()  # max ipotetico 3/4 barche 
+        risk_value = num_boat + risk
+
+        risk_value = int(np.interp(risk_value, (0, 17), (0, 100)))
         if risk_value < 33.0:
             color = "green1"
             reason = "Optimal Conditions"
@@ -149,10 +156,13 @@ def risk_factor(frame,rframe, gradient, w):
                 reason = "Adverse Weather"
             else:
                 reason = "Too many boats"
+        
+        draw_indicator(gradient, w, int(risk_value), True)
+        risk_value = (str(risk_value).zfill(2))
+
         frame.config(text = risk_value, bg=color, fg= "black", font=("Arial", 31))      
         rframe.config(text = reason, font=("Arial", 14, 'bold'))
-        draw_indicator(gradient, w, risk_value, True)
-
+        
 
 def update_time(title):
         current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
@@ -182,7 +192,9 @@ def get_weather(call):
             temperature = data["main"]["temp"]
             humidity = data["main"]["humidity"]
             wind_speed = data["wind"]["speed"]
-            
+            sunset = data["sys"]["sunset"]
+            sunrise = data["sys"]["sunrise"]
+
             message = (
                 f"Weather: {weather_description}\n"
                 f"Temperature: {temperature}°C\n"
@@ -192,9 +204,9 @@ def get_weather(call):
         else:
             print(f"Error: {data['message']}")
         if call:
-            return message, data["sys"]["sunset"], data["sys"]["sunrise"]
+            return message, sunset, sunrise
         else:
-            return weather_description
+            return weather_description, wind_speed
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -203,7 +215,6 @@ def add_event(event_log):
     text = ""
     found = {}
     for cname in detected.keys():
-        Boat.remove_old(detected[cname])
         found[cname] = len(detected[cname])
         if detected[cname]:
             for i in range(len(detected[cname])):                
@@ -245,10 +256,12 @@ def update_summary(found, text):
             max = np.argmax(check_val)
             k = check_key[max]
         else:
-            if int(time.time()) < sunset & int(time.time()) > sunrise:
-                k = check_key[0]
-            else:
-                k = check_key[-1]
+            if int(time.time()) > sunset:
+                k = check_key[-1] #dopo sunset
+            elif int(time.time()) < sunrise:
+                k = check_key[-1] #prima sunrise
+            elif int(time.time()) > sunrise & int(time.time()) < sunset:
+                k = check_key[0] #giorno
         max_n.append(k)
 
     for i in range(len(max_n)):
@@ -262,7 +275,7 @@ def update_summary(found, text):
                 else:
                     summ = summ + " & " + result.split(" : ")[-1]
     
-    summary.config(text = summ, font=("Arial", 22, 'bold'))
+    summary.config(text = summ, font=("Montserrat", 22, 'bold'))
 
 
 def add_frame(VFrame, IRFrame):
@@ -276,51 +289,19 @@ def add_frame(VFrame, IRFrame):
             for boat in detected[cname]:
                 if boat.cropped is not None:
                     img = boat.cropped
-                    if "Camera Stream 1" in cname or "Camera Stream 1" in cname:
+                    if "Camera Stream 1" in cname or "Camera Stream 2" in cname:
                         if VISFr is None:
                             VISFr = img
                         else:
-                            max_height = max(VISFr.shape[0], img.shape[0])
-                            max_width = max(VISFr.shape[1], img.shape[1])
-
-                            img1=cv2.copyMakeBorder(src=VISFr,
-                                                    top=0,
-                                                    bottom=max_height-VISFr.shape[0],
-                                                    left=0,
-                                                    right=max_width-VISFr.shape[1],
-                                                    borderType=cv2.BORDER_CONSTANT,
-                                                    value=[255, 255, 255])
-
-                            img2=cv2.copyMakeBorder(src=img,
-                                                    top=0,
-                                                    bottom=max_height-img.shape[0],
-                                                    left=0,
-                                                    right=max_width-img.shape[1],
-                                                    borderType=cv2.BORDER_CONSTANT,
-                                                    value=[255, 255, 255])
+                            img1 = VISFr
+                            img2 = img
                             VISFr = cv2.vconcat([img1,img2])
                     else:
                         if IRFr is None:
                             IRFr = img
                         else:
-                            max_height = max(IRFr.shape[0], img.shape[0])
-                            max_width = max(IRFr.shape[1], img.shape[1])
-
-                            img1=cv2.copyMakeBorder(src=IRFr,
-                                                    top=0,
-                                                    bottom=max_height-IRFr.shape[0],
-                                                    left=0,
-                                                    right=max_width-IRFr.shape[1],
-                                                    borderType=cv2.BORDER_CONSTANT,
-                                                    value=[255, 255, 255])
-
-                            img2=cv2.copyMakeBorder(src=img,
-                                                    top=0,
-                                                    bottom=max_height-img.shape[0],
-                                                    left=0,
-                                                    right=max_width-img.shape[1],
-                                                    borderType=cv2.BORDER_CONSTANT,
-                                                    value=[255, 255, 255])
+                            img1 = IRFr
+                            img2 = img
                             IRFr = cv2.vconcat([img1,img2])
         
     if not flag:
@@ -328,17 +309,16 @@ def add_frame(VFrame, IRFrame):
         VISFr = no_det
     Vimage = tk.PhotoImage(data=cv2.imencode(".ppm", VISFr)[1].tobytes())
     VFrame.configure(image = Vimage)
-    VFrame.image = Vimage
+    VFrame.image = Vimage       
     update_scroll_region_vis()
     
     IRimage = tk.PhotoImage(data=cv2.imencode(".ppm", IRFr)[1].tobytes())
     IRFrame.configure(image =IRimage)
     IRFrame.image = IRimage
     update_scroll_region_ir()
+
     frame_running = False
     return
-
-            
 
 def resize_frame(bbox, frame):
     if bbox is not None:
@@ -401,6 +381,8 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     frame, flag,bboxes, labels= detect_objects(frame, camera_name)  # Perform object detection on the frame
 
                 if flag:
+                    if detected[camera_name]:
+                        Boat.remove_old(detected[camera_name])  
                     classes = frame.boxes.cls.cpu().numpy().astype(int)
                     if (len(labels) > 1):
                         classes = frame.boxes.cls.cpu().numpy().astype(int)
@@ -543,7 +525,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                     if not event_running:
                         event_running = True
                         root.after(1000,add_event,event_log)
-                
+ 
             else:
                 print(f"Failed to read frame from camera: {camera_address}. Retrying...")
                 cap.release()
@@ -612,8 +594,8 @@ def create_gui(root):
     summary_frame.pack_propagate(0)
     column = tk.Frame(summary_frame, bg=root.cget("bg"))
     column.pack(side="top", padx=5, pady=5, anchor="center")
-    summary = tk.Label(column, wraplength=380, bg=root.cget("bg"), justify=tk.CENTER)
-    summary.pack(anchor="w")
+    summary = tk.Label(column, wraplength=400, bg=root.cget("bg"), justify=tk.LEFT, anchor="center")
+    summary.pack(anchor="center")
     ToolTip(summary_frame, "Summary of the situation of the port")
 
 
@@ -674,9 +656,8 @@ def create_gui(root):
     scrollbarIR.create_window((0, 0), window=frame2, anchor="nw")
     ToolTip(IR_frame, "Frame for boat visualization")
 
-
     #Risk indicator
-    Risk_frame = tk.LabelFrame(root, text="Risk indicator:", width=280, height=95, labelanchor="n", 
+    Risk_frame = tk.LabelFrame(root, text="Alert indicator:", width=280, height=95, labelanchor="n", 
                                font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
     Risk_frame.pack_propagate(0)
     gradient = tk.Canvas(Risk_frame, width=255*2, height=100, bg=root.cget("bg"), highlightbackground=root.cget("bg"))
@@ -689,7 +670,7 @@ def create_gui(root):
     frame3.pack()
     RiskFrame = tk.Label(frame3, anchor="center", bg=root.cget("bg"))
     RiskFrame.pack(side="right",padx=5,pady=2)
-    ToolTip(Risk_frame, "Risk indicator of the current situation")
+    ToolTip(Risk_frame, "Alert indicator of the current situation")
 
     Risk_reason_frame = tk.LabelFrame(root, text="Reason:", width=190, height=72, labelanchor="n", 
                                       font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
@@ -750,7 +731,7 @@ def create_gui(root):
     }
 
     global threading
-    for camera_name, camera_address in multicameras.items():
+    for camera_name, camera_address in mareforte.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, 
                                                                       elog, camera_name), daemon=True)
