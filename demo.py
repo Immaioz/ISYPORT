@@ -109,7 +109,7 @@ def zone():
     for cname in detected.keys():
         if detected[cname]:
             for boat in detected[cname]:
-                index = boat.zone
+                index = boat.zone[-1]
                 if "Camera Stream 1" in cname or "Camera Stream 2" in cname:
                     count_VIS[index] += 1
                 elif "Camera Stream 3" in cname or "Camera Stream 4" in cname:
@@ -222,7 +222,7 @@ def add_event(event_log):
                 detected[cname][i].update(direction = direction[np.argmax(detected[cname][i].tot_direction)])
                 lab = detected[cname][i].label             
                 mov = detected[cname][i].direction
-
+                
                 if text == "":
                     text = cname + " : A " + lab + " is " + mov
                     actual = cname
@@ -246,6 +246,8 @@ def add_event(event_log):
 def update_summary(found, text):
     summ = ""
     max_n = []
+    VIS_cams = list(detected.keys())[:2]
+    IR_cams = list(detected.keys())[2:]
     _, sunset, sunrise = get_weather(True)
     for i in range(len(found.values())//2):
         key = list(found.keys())
@@ -264,6 +266,15 @@ def update_summary(found, text):
                 k = check_key[0] #giorno
         max_n.append(k)
 
+
+    if max_n == VIS_cams:
+        if any(boat.zone[0] > 0.8 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
+            max_n.pop()
+
+    elif max_n == IR_cams:
+        if any(boat.zone[0] > 0.6 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
+            max_n.pop()
+                
     for i in range(len(max_n)):
         if max_n[i] in text:
             start_index = text.find(max_n[i])
@@ -275,7 +286,7 @@ def update_summary(found, text):
                 else:
                     summ = summ + " & " + result.split(" : ")[-1]
     
-    summary.config(text = summ, font=("Montserrat", 22, 'bold'))
+    summary.config(text = summ, font=("Montserrat", 18, 'bold'))
 
 
 def add_frame(VFrame, IRFrame):
@@ -288,6 +299,8 @@ def add_frame(VFrame, IRFrame):
             flag = True
             for boat in detected[cname]:
                 if boat.cropped is not None:
+                    if boat.zone[0] < 0.1 or boat.zone[0] > 0.9:
+                        continue
                     img = boat.cropped
                     if "Camera Stream 1" in cname or "Camera Stream 2" in cname:
                         if VISFr is None:
@@ -307,6 +320,7 @@ def add_frame(VFrame, IRFrame):
     if not flag:
         IRFr = no_det
         VISFr = no_det
+        
     Vimage = tk.PhotoImage(data=cv2.imencode(".ppm", VISFr)[1].tobytes())
     VFrame.configure(image = Vimage)
     VFrame.image = Vimage       
@@ -340,7 +354,7 @@ def determine_movement_direction(newx, newy, oldx, oldy2):
     delta_x = newx - oldx
     delta_y = newy - oldy2
     if delta_x < 0:
-        return 1 
+        return 1
     elif delta_x > 0:
         return 0
 
@@ -354,7 +368,8 @@ def detect_objects(frame,camera_name):
         model = modelVIS
     else:
         model = modelIR
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, iou=0.2, conf=0.4, agnostic_nms=True)
+    results = model(frame, device=0, imgsz=(320,352), verbose=False, 
+                    iou=0.2, conf=0.4, agnostic_nms=True)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -378,11 +393,11 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
             
             if ret:
                 with lock:  
-                    frame, flag,bboxes, labels= detect_objects(frame, camera_name)  # Perform object detection on the frame
-
-                if flag:
+                    frame, flag,bboxes, labels= detect_objects(frame, camera_name)  
                     if detected[camera_name]:
-                        Boat.remove_old(detected[camera_name])  
+                        Boat.remove_old(detected[camera_name])
+                if flag:
+                    
                     classes = frame.boxes.cls.cpu().numpy().astype(int)
                     if (len(labels) > 1):
                         classes = frame.boxes.cls.cpu().numpy().astype(int)
@@ -390,7 +405,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                             box = bboxes[i]
                             cl = classes[i]
                             box_norm = frame.boxes.xyxyn[i].cpu().numpy()
-                            _, zone_y = calculate_box_center(box_norm)
+                            zone_x, zone_y = calculate_box_center(box_norm)
                             centerx, centery = calculate_box_center(box)
 
                             if not detected[camera_name]:
@@ -398,7 +413,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                 detected[camera_name].append(Boat(id,[centerx,centery], datetime.timestamp(datetime.now()), 
                                                                   datetime.now().strftime("%H:%M:%S"), camera_name, 
                                                                   np.zeros(5).astype(int), np.zeros(2).astype(int), 
-                                                                  zone = int(zone_y/0.2),  cropped = resize_frame(box, frame[0].orig_img)))
+                                                                  zone = [zone_x, int(zone_y/0.2)],  cropped = resize_frame(box, frame[0].orig_img)))
                             else:
                                 pos, found = search_nearest([centerx,centery], camera_name)
                                 if not found:
@@ -406,14 +421,14 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                     detected[camera_name].append(Boat(id,[centerx,centery], datetime.timestamp(datetime.now()), 
                                                                       datetime.now().strftime("%H:%M:%S"), camera_name, 
                                                                       np.zeros(5).astype(int), np.zeros(2).astype(int), 
-                                                                      zone = int(zone_y/0.2), cropped = resize_frame(box, frame[0].orig_img)))
+                                                                      zone = [zone_x, int(zone_y/0.2)], cropped = resize_frame(box, frame[0].orig_img)))
                                 else:
                                     oldx = detected[camera_name][pos].pos[0]
                                     oldy = detected[camera_name][pos].pos[1]
                                     dir = determine_movement_direction(centerx, centery, oldx, oldy)
                                     if Boat.check_id(detected[camera_name],camera_name,id):
                                         detected[camera_name][pos].update(pos=[centerx,centery], last_seen=datetime.timestamp(datetime.now()), 
-                                                                          label_pos = cl, zone = int(zone_y/0.2), direction_pos = dir, 
+                                                                          label_pos = cl, zone = [zone_x, int(zone_y/0.2)], direction_pos = dir, 
                                                                           cropped = resize_frame(box, frame[0].orig_img))
 
                             if Boat.check_id(detected[camera_name],camera_name, id):
@@ -431,12 +446,11 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                 pos = Boat.find_id(detected[camera_name],camera_name, id) 
                                 label = names[np.argmax(detected[camera_name][pos].tot_labels)]
 
-
                             if Boat.check_id(detected[camera_name],camera_name, id):
                                 pos = Boat.find_id(detected[camera_name], camera_name, id) 
                                 direction_array = detected[camera_name][pos].tot_direction
                                 index = np.argmax(direction_array)
-                                mov = labels_array[index]
+                                mov = direction_array[index]
                                 if mov >= 10:
                                     if mov: #vero approaching // falso leaving
                                         stat = "approaching"
@@ -445,13 +459,14 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                 else:
                                     stat = "detected"
                                 detected[camera_name][pos].update(direction=stat)
+                                
                         frame = frame.plot()
                     else:
                         box = frame[0].boxes.xyxy[0].cpu().numpy()
                         label = frame[0].names[int(frame[0].boxes.cls[0])]
                         centerx, centery = calculate_box_center(box)
                         box_norm = frame.boxes.xyxyn[0].cpu().numpy()
-                        _, zone_y = calculate_box_center(box_norm)
+                        zone_x, zone_y = calculate_box_center(box_norm)
                         cl = classes[-1]
                         
                         if not detected[camera_name]:
@@ -460,7 +475,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                                               datetime.timestamp(datetime.now()),
                                                               datetime.now().strftime("%H:%M:%S"),
                                                               camera_name, np.zeros(5).astype(int), np.zeros(2).astype(int),
-                                                              zone = int(zone_y/0.2), cropped = resize_frame(box, frame[0].orig_img)))
+                                                              zone = [zone_x, int(zone_y/0.2)], cropped = resize_frame(box, frame[0].orig_img)))
                         else:
                             pos, found = search_nearest([centerx,centery], camera_name)
                             if not found:
@@ -469,14 +484,14 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                                                                   datetime.timestamp(datetime.now()),
                                                                   datetime.now().strftime("%H:%M:%S"),
                                                                   camera_name,np.zeros(5).astype(int), np.zeros(2).astype(int),
-                                                                  zone = int(zone_y/0.2), cropped = resize_frame(box, frame[0].orig_img)))
+                                                                  zone = [zone_x, int(zone_y/0.2)], cropped = resize_frame(box, frame[0].orig_img)))
                             else:
                                 oldx = detected[camera_name][pos].pos[0]
                                 oldy = detected[camera_name][pos].pos[1]
                                 dir = determine_movement_direction(centerx, centery, oldx, oldy)
                                 if Boat.check_id(detected[camera_name],camera_name,id):
                                     detected[camera_name][pos].update(pos=[centerx,centery], last_seen=datetime.timestamp(datetime.now()), 
-                                                                      label_pos = cl, zone = int(zone_y/0.2), direction_pos = dir, 
+                                                                      label_pos = cl, zone = [zone_x, int(zone_y/0.2)], direction_pos = dir, 
                                                                       cropped = resize_frame(box, frame[0].orig_img))
 
                         if Boat.check_id(detected[camera_name],camera_name, id):
@@ -493,7 +508,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
                             pos = Boat.find_id(detected[camera_name], camera_name, id) 
                             direction_array = detected[camera_name][pos].tot_direction
                             index = np.argmax(direction_array)
-                            mov = labels_array[index]
+                            mov = direction_array[index]
                             if mov >= 10:
                                 if mov: #vero approaching // falso leaving
                                     stat = "approaching"
@@ -590,7 +605,7 @@ def create_gui(root):
     # Summary frame
     global summary
     summary_frame = tk.LabelFrame(root, text="Summary Log:", width=380, height=140,  labelanchor="n", 
-                                  font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
+                                  font=font.Font(weight="bold", size=16), bg=root.cget("bg"), foreground="#778DA9")
     summary_frame.pack_propagate(0)
     column = tk.Frame(summary_frame, bg=root.cget("bg"))
     column.pack(side="top", padx=5, pady=5, anchor="center")
@@ -731,7 +746,7 @@ def create_gui(root):
     }
 
     global threading
-    for camera_name, camera_address in mareforte.items():
+    for camera_name, camera_address in multicameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, 
                                                                       elog, camera_name), daemon=True)
@@ -758,6 +773,7 @@ if __name__ == "__main__":
     root.title("Camera Streams GUI")
     root.option_add("*Label.foreground", "#E0E1DD")
     root.geometry("1200x800")
+    #root.resizable(False, False)
     icon = tk.PhotoImage(file="utils/icon.png")
     root.iconphoto(True, icon)
     style.configure("Vertical.TScrollbar", gripcount=0,

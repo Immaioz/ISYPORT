@@ -19,7 +19,9 @@ def save_log(data):
 
 
 class Boat:
-    def __init__(self,id,pos,last_seen, arrival, camera,tot_labels, tot_direction, label="boat", direction="detected", zone=None, cropped=None):
+    def __init__(self,id,pos,last_seen, arrival, camera,
+                 tot_labels, tot_direction, label="boat", 
+                 direction="detected", zone=None, cropped=None):
         self.id = id
         self.pos = pos
         self.last_seen = last_seen
