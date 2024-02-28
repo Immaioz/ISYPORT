@@ -96,7 +96,7 @@ def draw_indicator(canvas, width, ini, mod):
         canvas.delete("mid")
         canvas.delete("bot")
     pos = int((ini * (width)) /100) 
-    points = [pos-8,0, pos+8,0, pos,10]
+    points = [pos- 8,0, pos+8,0, pos,10]
     canvas.create_polygon(points,  tags="top")
     points2 = [pos-8,55, pos+8,55, pos,45]
     canvas.create_polygon(points2,   tags="bot")
@@ -136,7 +136,6 @@ def risk_factor(frame,rframe, gradient, w):
             temp = 0
 
         risk = risk + temp # max 13
-
         num_boat = zone()  # max ipotetico 3/4 barche 
         risk_value = num_boat + risk
 
@@ -178,11 +177,12 @@ def update_weather(l1,l2,r1,r2):
         l2.config(text=mex[1])
         r1.config(text=mex[2])
         r2.config(text=mex[3])
-        time.sleep(1)
+        time.sleep(5)
 
 def get_weather(call):
     base_url = "https://api.openweathermap.org/data/2.5/weather?"
     final_url = base_url + "appid=" + config.api_key + "&id=" + config.city_id + "&units=" + config.units
+    response = None
     try:
         response = requests.get(final_url)
         data = response.json()
@@ -201,12 +201,12 @@ def get_weather(call):
                 f"Humidity: {humidity}%\n"
                 f"Wind Speed: {wind_speed} m/s\n"
             )
+            if call:
+                return message, sunset, sunrise
+            else:
+                return weather_description, wind_speed
         else:
             print(f"Error: {data['message']}")
-        if call:
-            return message, sunset, sunrise
-        else:
-            return weather_description, wind_speed
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -291,35 +291,38 @@ def update_summary(found, text):
 
 def add_frame(VFrame, IRFrame):
     global frame_running
-    flag = False
-    VISFr = None
-    IRFr = None
+
+    # VISFr = None
+    # IRFr = None
+
+
+    IRFr = no_det
+    VISFr = no_det
+
     for cname in detected.keys():
         if detected[cname]:
-            flag = True
+
             for boat in detected[cname]:
                 if boat.cropped is not None:
-                    if boat.zone[0] < 0.1 or boat.zone[0] > 0.9:
-                        continue
                     img = boat.cropped
                     if "Camera Stream 1" in cname or "Camera Stream 2" in cname:
-                        if VISFr is None:
+                        if boat.zone[0] < 0.05 or boat.zone[0] > 0.9:
+                            continue
+                        if VISFr is no_det:
                             VISFr = img
                         else:
                             img1 = VISFr
                             img2 = img
                             VISFr = cv2.vconcat([img1,img2])
                     else:
-                        if IRFr is None:
+                        if boat.zone[0] < 0.1 or boat.zone[0] > 0.9:
+                            continue
+                        if IRFr is no_det:
                             IRFr = img
                         else:
                             img1 = IRFr
                             img2 = img
                             IRFr = cv2.vconcat([img1,img2])
-        
-    if not flag:
-        IRFr = no_det
-        VISFr = no_det
         
     Vimage = tk.PhotoImage(data=cv2.imencode(".ppm", VISFr)[1].tobytes())
     VFrame.configure(image = Vimage)
@@ -387,7 +390,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
             print(f"Failed to open camera: {camera_address}. Retrying in 2 seconds...")
             time.sleep(2)
             continue
-
+        
         while running:
             ret, frame = cap.read()
             
@@ -553,7 +556,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 def create_gui(root):
     global q1_frame
     # # Main area divided into 4 quadrants
-    q1_frame = tk.LabelFrame(root, text="Camera Stream 1:", width= 355, height= 180, labelanchor="n", 
+    q1_frame = tk.LabelFrame(root, text="Camera Stream 1:", width= 355, height= 252, labelanchor="n", 
                              font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
     q1_frame.pack_propagate(0)
     c1 = tk.Frame(q1_frame, bg=root.cget("bg"))
@@ -563,7 +566,7 @@ def create_gui(root):
     ToolTip(q1_frame, "First Visible Camera")
 
 
-    q2_frame = tk.LabelFrame(root, text="Camera Stream 2:", width= 355, height= 180 ,labelanchor="n", 
+    q2_frame = tk.LabelFrame(root, text="Camera Stream 2:", width= 355, height= 252 ,labelanchor="n", 
                              font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
     q2_frame.pack_propagate(0)
     c2 = tk.Frame(q2_frame, bg=root.cget("bg"))

@@ -1,11 +1,13 @@
 from datetime import datetime
 import os
 
+
+filename = datetime.now().strftime("%H_%M_%S") + "_log.csv"
+
 def save_log(data):
     directory = "logs"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    filename = datetime.now().strftime("%H_%M_%S") + "_log.csv"
     path = os.path.join(directory,filename)
     file_exists = os.path.exists(path)
     fieldnames = "Camera,Label,Time,Direction of travel"
@@ -15,7 +17,6 @@ def save_log(data):
             file.write("\n")
         file.write(data)
         file.write("\n")
-
 
 
 class Boat:
