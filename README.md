@@ -4,20 +4,19 @@ This repo contains the scripts for the GUI of the video monitoring and classific
 The interface contains the stream from each camera along with a log where boat types and their direction of movement within the port are displayed. Also two section displaying the dectected boats are displayed and information about time and weather conditions.
 Lastly a risk value is displayed along with the reason for that risk value for the actual scenario.
 
-![Example](utils/notturno_example.png?raw=true "Example")
+![Example](utils\Multiboat.png?raw=true "Example")
 
 
+## Usage
 
-## Installation
-
-The script requires pip package ultralytics to work
+- Create a Python Virtual Environment (https://docs.python.org/3/library/venv.html)
+- Install all the required Python packages (OpenCV, Numpy, Tensorflow) using the requirments txt.
 
 ```bash
-pip install ultralytics
+pip install -r requirements.txt
 ```
 
-
-
+- Run the demo.py script
 
 
 
