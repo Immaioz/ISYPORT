@@ -172,7 +172,6 @@ def risk_factor(frame,rframe, gradient, w):
 
 def update_time(title):
         current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
-        current_time = "Tuesday, 05/09/2023, 09:37"
         name = current_time + ", Augusta:"
         title.config(text=name)
         root.after(60000,update_time,title)
@@ -207,10 +206,10 @@ def get_weather(call):
                     weather.sunset = data["sys"]["sunset"]
                     weather.sunrise = data["sys"]["sunrise"]
                 else:
-                    weather.update(description="clear sky",# data["weather"][0]["description"],
-                                   temperature= 27.7,#data["main"]["temp"],
-                                   humidity=44, #data["main"]["humidity"], 
-                                   wind_speed=9.69,#data["wind"]["speed"], 
+                    weather.update(description=data["weather"][0]["description"],
+                                   temperature=data["main"]["temp"],
+                                   humidity=data["main"]["humidity"], 
+                                   wind_speed=data["wind"]["speed"], 
                                    sunset=data["sys"]["sunset"], 
                                    sunrise=data["sys"]["sunrise"])
             
@@ -809,7 +808,7 @@ def create_gui(root):
 
 
     global threading
-    for camera_name, camera_address in mareforte.items():
+    for camera_name, camera_address in cameras.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, 
                                                                       elog, camera_name), daemon=True)
