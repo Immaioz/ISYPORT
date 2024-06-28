@@ -72,7 +72,7 @@ class Boat:
     def remove_old(list):
         now = datetime.timestamp(datetime.now())
         for boat in list:
-            if now - boat.last_seen > 10:
+            if now - boat.last_seen > 2:
                 #print(f"Removing: {boat}")
                 data = boat.camera + "," + boat.label + "," + boat.arrival + "," + boat.direction
                 save_log(data)

@@ -41,3 +41,13 @@ loading.py
 demo_porto.py
 demo_old.py
 demo copy.py
+models/VIS_correct.pt
+models/IR_correct.pt
+OLD_Demo
+models\VisibleModel
+models\IRModel
+models\LastIR
+models\LastModel
+models\Model
+models\IRModel.pt
+models\VISModel.pt

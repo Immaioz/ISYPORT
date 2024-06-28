@@ -13,19 +13,18 @@ from tkinter import ttk
 import math 
 
 from Boat import Boat
+from Weather import Weather
 from ToolTip import ToolTip
 
 
 lock = threading.Lock()
 
-modelVIS = YOLO('models/VISModel.pt')
-modelIR = YOLO('models/IRModel.pt')
+modelVIS = YOLO('models/VIS_07_02_24.pt')
+modelIR = YOLO('models/IR_07_02_24.pt')
 
 
 names = modelVIS.names
 direction = ["leaving", "approaching"]
-
-bad_conditions = ["mist", "thunderstorm", "rain", "shower rain"]
 
 global threads, event_running, frame_running
 
@@ -44,6 +43,14 @@ detected = {
     "Camera Stream 4": []
 }
 
+frame_count = {
+    "Camera Stream 1": 0,
+    "Camera Stream 2": 0,
+    "Camera Stream 3": 0,
+    "Camera Stream 4": 0
+}
+
+weather = Weather()
 
 def distance(point1, point2):
     x1, y1 = point1
@@ -124,8 +131,8 @@ def risk_factor(frame,rframe, gradient, w):
         bad_conditions = ["overcast clouds", "mist", "shower rain", "rain", "thunderstorm"]
         risk = 0
         risk_value = 0
-        cond, wind = get_weather(False)
-        
+        _, cond, wind, _, _ = get_weather(False)
+
         if cond in bad_conditions:
             risk = bad_conditions.index(cond) + 1
         
@@ -165,13 +172,14 @@ def risk_factor(frame,rframe, gradient, w):
 
 def update_time(title):
         current_time = datetime.now().strftime("%A, %d/%m/%Y, %H:%M")
+        current_time = "Tuesday, 05/09/2023, 09:37"
         name = current_time + ", Augusta:"
         title.config(text=name)
         root.after(60000,update_time,title)
 
 def update_weather(l1,l2,r1,r2):
     while running:
-        message, _, _ = get_weather(True)
+        message, _, _, _, _ = get_weather(True)
         mex = message.split("\n")        
         l1.config(text=mex[0])
         l2.config(text=mex[1])
@@ -186,25 +194,41 @@ def get_weather(call):
     try:
         response = requests.get(final_url)
         data = response.json()
-        
-        if response.status_code == 200:
-            weather_description = data["weather"][0]["description"]
-            temperature = data["main"]["temp"]
-            humidity = data["main"]["humidity"]
-            wind_speed = data["wind"]["speed"]
-            sunset = data["sys"]["sunset"]
-            sunrise = data["sys"]["sunrise"]
+        if weather.description is None:
+            call = True
 
-            message = (
-                f"Weather: {weather_description}\n"
-                f"Temperature: {temperature}°C\n"
-                f"Humidity: {humidity}%\n"
-                f"Wind Speed: {wind_speed} m/s\n"
-            )
+        if response.status_code == 200:
             if call:
-                return message, sunset, sunrise
+                if weather.description is None:
+                    weather.description = data["weather"][0]["description"]
+                    weather.temperature = data["main"]["temp"]
+                    weather.humidity = data["main"]["humidity"]
+                    weather.wind_speed = data["wind"]["speed"]
+                    weather.sunset = data["sys"]["sunset"]
+                    weather.sunrise = data["sys"]["sunrise"]
+                else:
+                    weather.update(description="clear sky",# data["weather"][0]["description"],
+                                   temperature= 27.7,#data["main"]["temp"],
+                                   humidity=44, #data["main"]["humidity"], 
+                                   wind_speed=9.69,#data["wind"]["speed"], 
+                                   sunset=data["sys"]["sunset"], 
+                                   sunrise=data["sys"]["sunrise"])
+            
+                message = (
+                    f"Weather: {weather.description}\n"
+                    f"Temperature: {weather.temperature}°C\n"
+                    f"Humidity: {weather.humidity}%\n"
+                    f"Wind Speed: {weather.wind_speed} m/s\n"
+                )
+                return message, weather.description, weather.wind_speed, weather.sunset, weather.sunrise
             else:
-                return weather_description, wind_speed
+                message = (
+                    f"Weather: {weather.description}\n"
+                    f"Temperature: {weather.temperature}°C\n"
+                    f"Humidity: {weather.humidity}%\n"
+                    f"Wind Speed: {weather.wind_speed} m/s\n"
+                )
+                return message, weather.description, weather.wind_speed, weather.sunset, weather.sunrise
         else:
             print(f"Error: {data['message']}")
     except Exception as e:
@@ -248,7 +272,8 @@ def update_summary(found, text):
     max_n = []
     VIS_cams = list(detected.keys())[:2]
     IR_cams = list(detected.keys())[2:]
-    _, sunset, sunrise = get_weather(True)
+    _, _, _, sunset, sunrise = get_weather(False)
+
     for i in range(len(found.values())//2):
         key = list(found.keys())
         values = list(found.values())
@@ -264,15 +289,16 @@ def update_summary(found, text):
                 k = check_key[-1] #prima sunrise
             elif int(time.time()) > sunrise & int(time.time()) < sunset:
                 k = check_key[0] #giorno
+            k = check_key[-1]
         max_n.append(k)
 
-
+    #max_n = VIS_cams
     if max_n == VIS_cams:
-        if any(boat.zone[0] > 0.8 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
+        if any(boat.zone[0] > 0.7 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
             max_n.pop()
 
     elif max_n == IR_cams:
-        if any(boat.zone[0] > 0.6 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
+        if any(boat.zone[0] > 0.4 for boat in detected[max_n[0]]) & any(boat.zone[0] > 0 for boat in detected[max_n[1]]):
             max_n.pop()
                 
     for i in range(len(max_n)):
@@ -291,11 +317,6 @@ def update_summary(found, text):
 
 def add_frame(VFrame, IRFrame):
     global frame_running
-
-    # VISFr = None
-    # IRFr = None
-
-
     IRFr = no_det
     VISFr = no_det
 
@@ -306,7 +327,7 @@ def add_frame(VFrame, IRFrame):
                 if boat.cropped is not None:
                     img = boat.cropped
                     if "Camera Stream 1" in cname or "Camera Stream 2" in cname:
-                        if boat.zone[0] < 0.05 or boat.zone[0] > 0.9:
+                        if boat.zone[0] < 0.05 or boat.zone[0] > 0.98:
                             continue
                         if VISFr is no_det:
                             VISFr = img
@@ -315,7 +336,7 @@ def add_frame(VFrame, IRFrame):
                             img2 = img
                             VISFr = cv2.vconcat([img1,img2])
                     else:
-                        if boat.zone[0] < 0.1 or boat.zone[0] > 0.9:
+                        if boat.zone[0] < 0.1 or boat.zone[0] > 0.95:
                             continue
                         if IRFr is no_det:
                             IRFr = img
@@ -371,8 +392,8 @@ def detect_objects(frame,camera_name):
         model = modelVIS
     else:
         model = modelIR
-    results = model(frame, device=0, imgsz=(320,352), verbose=False, 
-                    iou=0.2, conf=0.4, agnostic_nms=True)
+    results = model(frame, imgsz=352, iou=0.2,
+                    verbose=False, conf=0.1, agnostic_nms=True, classes=[2], vid_stride=5)
 
     if len(results[0].boxes) != 0:
         for i in range (len(results[0].boxes)):
@@ -385,9 +406,10 @@ def detect_objects(frame,camera_name):
 def display_camera_stream(camera_address, quadrant, event_log, camera_name):
     
     while running:
+        skip_frames = 2
         cap = cv2.VideoCapture(camera_address)
         if not cap.isOpened():
-            print(f"Failed to open camera: {camera_address}. Retrying in 2 seconds...")
+            print(f"Failed to open camera: {camera_address}. Retrying in 2 seconds...") 
             time.sleep(2)
             continue
         
@@ -395,6 +417,17 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
             ret, frame = cap.read()
             
             if ret:
+                                
+                frame_count[camera_name] += 1
+                if "1" in camera_name or "2" in camera_name:
+                    if frame_count[camera_name] % (skip_frames+1) != 0:
+                        Boat.remove_old(detected[camera_name])
+                        continue
+                else:
+                    if frame_count[camera_name] % skip_frames != 0:
+                        Boat.remove_old(detected[camera_name])
+                        continue
+                    
                 with lock:  
                     frame, flag,bboxes, labels= detect_objects(frame, camera_name)  
                     if detected[camera_name]:
@@ -556,7 +589,7 @@ def display_camera_stream(camera_address, quadrant, event_log, camera_name):
 def create_gui(root):
     global q1_frame
     # # Main area divided into 4 quadrants
-    q1_frame = tk.LabelFrame(root, text="Camera Stream 1:", width= 355, height= 252, labelanchor="n", 
+    q1_frame = tk.LabelFrame(root, text="Camera Stream 1:", width= 355, height= 180, labelanchor="n", 
                              font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
     q1_frame.pack_propagate(0)
     c1 = tk.Frame(q1_frame, bg=root.cget("bg"))
@@ -566,7 +599,7 @@ def create_gui(root):
     ToolTip(q1_frame, "First Visible Camera")
 
 
-    q2_frame = tk.LabelFrame(root, text="Camera Stream 2:", width= 355, height= 252 ,labelanchor="n", 
+    q2_frame = tk.LabelFrame(root, text="Camera Stream 2:", width= 355, height= 180 ,labelanchor="n", 
                              font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
     q2_frame.pack_propagate(0)
     c2 = tk.Frame(q2_frame, bg=root.cget("bg"))
@@ -619,7 +652,7 @@ def create_gui(root):
 
     # Additional information in two columns
     additional_info_frame = tk.LabelFrame(root, text="Weather in Augusta:", width= 339, height= 83, labelanchor="n", 
-                                          font=font.Font(weight="bold"), bg=root.cget("bg"), foreground="#778DA9")
+                                          font=font.Font(weight="bold", size=13), bg=root.cget("bg"), foreground="#778DA9")
     additional_info_frame.pack_propagate(0)
     left_column = tk.Frame(additional_info_frame, bg=root.cget("bg"))
     left_column.pack(side="left", padx=5, pady=5)
@@ -747,9 +780,36 @@ def create_gui(root):
         "Camera Stream 3": "Video/15_09_2023 00_50_43/old/Cam3.mkv",
         "Camera Stream 4": "Video/15_09_2023 00_50_43/old/Cam4.mkv"
     }
+    
+
+    notte1 = {
+        "Camera Stream 1": "Video/Notte1/15_10_2023 05_52_07 CAM1.mkv",
+        "Camera Stream 2": "Video/Notte1/15_10_2023 05_52_07 CAM2.mkv",
+        "Camera Stream 3": "Video/Notte1/15_10_2023 05_52_08 CAM3.mkv",
+        "Camera Stream 4": "Video/Notte1/15_10_2023 05_52_09 CAM4.mkv"
+    }
+
+
+    notte2 = {
+        "Camera Stream 1": "Video/Notte2/16_03_2024 19_28_29 CAM1.mkv",
+        "Camera Stream 2": "Video/Notte2/16_03_2024 19_28_30 CAM2.mkv",
+        "Camera Stream 3": "Video/Notte2/16_03_2024 19_28_30 CAM3.mkv",
+        "Camera Stream 4": "Video/Notte2/16_03_2024 19_28_30 CAM4.mkv"
+    }
+
+    nuovo = {
+        "Camera Stream 1": "Video/14_10_2023 10_21_44/CAM1.mkv",
+        "Camera Stream 2": "Video/14_10_2023 10_21_44/CAM2.mkv",
+        "Camera Stream 3": "Video/14_10_2023 10_21_44/CAM3.mkv",
+        "Camera Stream 4": "Video/14_10_2023 10_21_44/CAM4.mkv"
+
+
+    }
+
+
 
     global threading
-    for camera_name, camera_address in multicameras.items():
+    for camera_name, camera_address in mareforte.items():
         quadrant = locals()[f"quadrant_{camera_name.split()[-1]}"]
         thread = threading.Thread(target=display_camera_stream, args=(camera_address, quadrant, 
                                                                       elog, camera_name), daemon=True)
@@ -776,7 +836,7 @@ if __name__ == "__main__":
     root.title("Camera Streams GUI")
     root.option_add("*Label.foreground", "#E0E1DD")
     root.geometry("1200x800")
-    #root.resizable(False, False)
+    root.resizable(False, False)
     icon = tk.PhotoImage(file="utils/icon.png")
     root.iconphoto(True, icon)
     style.configure("Vertical.TScrollbar", gripcount=0,
